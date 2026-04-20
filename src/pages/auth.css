@@ -10,7 +10,7 @@ body {
 /* ─── LOGIN PAGE ─────────────────────────────────── */
 
 .login-page {
-  min-height: 100vh;
+  min-height: 120vh;
   background-image:
     linear-gradient(rgba(4, 10, 48, 0.58), rgba(4, 10, 48, 0.58)),
     url("/images/bg.png");

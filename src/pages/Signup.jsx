@@ -34,33 +34,48 @@ function EyeIcon() {
 function EyeSlashIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <path
-        d="M3 3L21 21"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M10.6 10.7A3 3 0 0 0 12 15a3 3 0 0 0 2.3-.9"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M9.9 5.2A10.8 10.8 0 0 1 12 5c4.6 0 8.2 2.8 10 7a12.6 12.6 0 0 1-4 5"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M6.1 6.1A12.7 12.7 0 0 0 2 12c1.8 4.2 5.4 7 10 7 1.2 0 2.4-.2 3.4-.6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
+      <path d="M3 3L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M10.6 10.7A3 3 0 0 0 12 15a3 3 0 0 0 2.3-.9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M9.9 5.2A10.8 10.8 0 0 1 12 5c4.6 0 8.2 2.8 10 7a12.6 12.6 0 0 1-4 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M6.1 6.1A12.7 12.7 0 0 0 2 12c1.8 4.2 5.4 7 10 7 1.2 0 2.4-.2 3.4-.6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
+
+const validateField = (name, value, extra = {}) => {
+  switch (name) {
+    case "username":
+      if (!value.trim()) return "Username is required";
+      if (value.trim().length < 3) return "Minimum 3 characters";
+      if (!/^[a-zA-Z0-9_]+$/.test(value.trim())) return "Only letters, numbers and underscores";
+      return "";
+    case "email":
+      if (!value.trim()) return "Email is required";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) return "Enter a valid email address";
+      return "";
+    case "password":
+      if (!value) return "Password is required";
+      if (value.length < 6) return "Minimum 6 characters";
+      return "";
+    case "confirmPassword":
+      if (!value) return "Please confirm your password";
+      if (value !== extra.password) return "Passwords do not match";
+      return "";
+    default:
+      return "";
+  }
+};
+
+const firebaseErrorMessage = (code) => {
+  switch (code) {
+    case "auth/email-already-in-use": return "This email is already registered.";
+    case "auth/invalid-email":        return "Please enter a valid email address.";
+    case "auth/weak-password":        return "Password is too weak. Use at least 6 characters.";
+    case "auth/network-request-failed": return "Network error. Check your connection and try again.";
+    case "auth/too-many-requests":    return "Too many attempts. Please try again later.";
+    default:                          return "Failed to create account. Please try again.";
+  }
+};
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -71,57 +86,63 @@ export default function Signup() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+  const [formError, setFormError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const handleBlur = (name, value) => {
+    setTouched((prev) => ({ ...prev, [name]: true }));
+    setErrors((prev) => ({
+      ...prev,
+      [name]: validateField(name, value, { password }),
+    }));
+  };
+
+  const revalidate = (name, value) => {
+    if (!touched[name]) return;
+    setErrors((prev) => ({
+      ...prev,
+      [name]: validateField(name, value, { password }),
+    }));
+  };
+
   const handleSignup = async (e) => {
     e.preventDefault();
-    setError("");
+    setFormError("");
     setSuccess("");
+
+    const allTouched = { username: true, email: true, password: true, confirmPassword: true };
+    setTouched(allTouched);
+
+    const newErrors = {
+      username:        validateField("username", username),
+      email:           validateField("email", email),
+      password:        validateField("password", password),
+      confirmPassword: validateField("confirmPassword", confirmPassword, { password }),
+    };
+    setErrors(newErrors);
+
+    if (Object.values(newErrors).some(Boolean)) return;
 
     const cleanUsername = username.trim();
     const cleanEmail = email.trim();
-
-    if (
-      !cleanUsername ||
-      !cleanEmail ||
-      !password.trim() ||
-      !confirmPassword.trim()
-    ) {
-      setError("Please complete all fields");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-
     let createdUser = null;
 
     try {
       setLoading(true);
 
-      const existingQuery = query(
-        collection(db, "users"),
-        where("username", "==", cleanUsername),
-        limit(1)
+      const existing = await getDocs(
+        query(collection(db, "users"), where("username", "==", cleanUsername), limit(1))
       );
 
-      const existing = await getDocs(existingQuery);
-
       if (!existing.empty) {
-        setError("Username already exists");
+        setErrors((prev) => ({ ...prev, username: "Username already taken" }));
         return;
       }
 
-      const credential = await createUserWithEmailAndPassword(
-        auth,
-        cleanEmail,
-        password
-      );
-
+      const credential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       createdUser = credential.user;
       await createdUser.getIdToken(true);
 
@@ -131,22 +152,17 @@ export default function Signup() {
         createdAt: serverTimestamp(),
       });
 
-      setSuccess("Account created successfully");
+      setSuccess("Account created! Redirecting to login...");
       await signOut(auth);
-
-      setTimeout(() => navigate("/login"), 1200);
+      setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
       console.error("Signup error:", err);
-
       try {
-        if (createdUser) {
-          await deleteUser(createdUser);
-        }
+        if (createdUser) await deleteUser(createdUser);
       } catch (cleanupErr) {
         console.error("Cleanup error:", cleanupErr);
       }
-
-      setError(err.message || "Failed to create account");
+      setFormError(firebaseErrorMessage(err.code));
     } finally {
       setLoading(false);
     }
@@ -154,22 +170,31 @@ export default function Signup() {
 
   return (
     <div className="login-page">
-      <div className="login-bg"></div>
-
       <div className="login-overlay">
         <div className="login-wrapper">
           <div className="login-card">
-            <h1 className="idms-title">IDMS</h1>
-            <p className="idms-subtitle">INTEGRATED DOCUMENT MANAGMENT SYSTEM</p>
-            <p className="login-user-text">Sign Up User</p>
 
-            <form onSubmit={handleSignup} className="login-form">
+            <h1 className="idms-title">IDMS</h1>
+            <p className="idms-subtitle">INTEGRATED DOCUMENT MANAGEMENT SYSTEM</p>
+            <p className="idms-unit">POLIS DIRAJA MALAYSIA &middot; IPK PERAK</p>
+
+            <div className="login-divider-gold"></div>
+
+            <p className="signup-heading">Create an Account</p>
+
+            <form onSubmit={handleSignup} className="login-form" noValidate>
+
               <div className="form-group">
                 <label>Username</label>
                 <input
+                  type="text"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => { setUsername(e.target.value); revalidate("username", e.target.value); }}
+                  onBlur={() => handleBlur("username", username)}
                 />
+                {touched.username && errors.username && (
+                  <span className="field-error">{errors.username}</span>
+                )}
               </div>
 
               <div className="form-group">
@@ -177,8 +202,12 @@ export default function Signup() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); revalidate("email", e.target.value); }}
+                  onBlur={() => handleBlur("email", email)}
                 />
+                {touched.email && errors.email && (
+                  <span className="field-error">{errors.email}</span>
+                )}
               </div>
 
               <div className="form-group">
@@ -187,54 +216,56 @@ export default function Signup() {
                   <input
                     type={showPassword ? "text" : "password"}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      revalidate("password", e.target.value);
+                      if (touched.confirmPassword) {
+                        setErrors((prev) => ({
+                          ...prev,
+                          confirmPassword: validateField("confirmPassword", confirmPassword, { password: e.target.value }),
+                        }));
+                      }
+                    }}
+                    onBlur={() => handleBlur("password", password)}
                   />
-                  <button
-                    type="button"
-                    className="eye-button"
-                    onClick={() => setShowPassword((v) => !v)}
-                  >
+                  <button type="button" className="eye-button" onClick={() => setShowPassword((v) => !v)}>
                     {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
                   </button>
                 </div>
+                {touched.password && errors.password && (
+                  <span className="field-error">{errors.password}</span>
+                )}
               </div>
 
               <div className="form-group">
-                <label>Re-Password</label>
+                <label>Confirm Password</label>
                 <div className="password-field">
                   <input
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e) => { setConfirmPassword(e.target.value); revalidate("confirmPassword", e.target.value); }}
+                    onBlur={() => handleBlur("confirmPassword", confirmPassword)}
                   />
-                  <button
-                    type="button"
-                    className="eye-button"
-                    onClick={() => setShowConfirmPassword((v) => !v)}
-                  >
+                  <button type="button" className="eye-button" onClick={() => setShowConfirmPassword((v) => !v)}>
                     {showConfirmPassword ? <EyeSlashIcon /> : <EyeIcon />}
                   </button>
                 </div>
+                {touched.confirmPassword && errors.confirmPassword && (
+                  <span className="field-error">{errors.confirmPassword}</span>
+                )}
               </div>
 
-              <div className="login-meta-row">
-                <div className="error-box">
-                  {error ? <span className="error-text">ⓘ {error}</span> : null}
-                  {success ? <span className="success-text">✓ {success}</span> : null}
-                </div>
+              {formError && <p className="login-error-msg">{formError}</p>}
+              {success && <p className="signup-success-msg">&#10003; {success}</p>}
 
-                <button
-                  type="button"
-                  className="text-link"
-                  onClick={() => navigate("/login")}
-                >
-                  Go Back To Login
-                </button>
-              </div>
-
-              <button type="submit" className="login-btn" disabled={loading}>
-                {loading ? "Creating..." : "Create Account"}
+              <button type="submit" className="login-btn" disabled={loading || !!success}>
+                {loading ? "Creating Account..." : "Create Account"}
               </button>
+
+              <button type="button" className="signup-btn" onClick={() => navigate("/login")}>
+                Back to Login
+              </button>
+
             </form>
 
             <footer className="login-footer">

@@ -9,7 +9,7 @@ export default function UploadPage() {
   const [refNo, setRefNo] = useState("");
   const [title, setTitle] = useState("");
   const [type, setType] = useState("");
-  const [direction] = useState("incoming"); // fixed (no need to change)
+  const [direction, setDirection] = useState("incoming");
   const [fileUrl, setFileUrl] = useState("");
   const [departments, setDepartments] = useState([]);
   const [error, setError] = useState("");
@@ -108,6 +108,22 @@ export default function UploadPage() {
                   onChange={(e) => setTitle(e.target.value)}
                   className="upload-blue-input"
                 />
+              </div>
+            </div>
+
+            {/* DIRECTION */}
+            <div className="upload-form-row">
+              <label className="upload-form-label">Direction</label>
+              <span className="upload-form-colon">:</span>
+              <div className="upload-form-field">
+                <select
+                  value={direction}
+                  onChange={(e) => setDirection(e.target.value)}
+                  className="upload-blue-input"
+                >
+                  <option value="incoming">Incoming</option>
+                  <option value="outgoing">Outgoing</option>
+                </select>
               </div>
             </div>
 

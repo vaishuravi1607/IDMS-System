@@ -4,6 +4,7 @@ import {
   collection,
   doc,
   getDoc,
+  increment,
   onSnapshot,
   orderBy,
   query,
@@ -26,6 +27,14 @@ export default function Chat() {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [search, setSearch] = useState("");
+  const [currentUsername, setCurrentUsername] = useState("");
+
+  useEffect(() => {
+    if (!currentUid) return;
+    getDoc(doc(db, "users", currentUid)).then((snap) => {
+      if (snap.exists()) setCurrentUsername(snap.data().username || "");
+    });
+  }, [currentUid]);
 
   useEffect(() => {
     if (!currentUid) return;
@@ -61,6 +70,9 @@ export default function Chat() {
 
     const chatId = createChatId(currentUid, selectedUser.id);
 
+    const chatRef = doc(db, "chats", chatId);
+    updateDoc(chatRef, { [`unreadCounts.${currentUid}`]: 0 }).catch(() => {});
+
     const msgQ = query(
       collection(db, "chats", chatId, "messages"),
       orderBy("createdAt", "asc")
@@ -82,10 +94,7 @@ export default function Chat() {
     if (!existing.exists()) {
       await setDoc(chatRef, {
         participants: [currentUid, selectedUser.id],
-        participantUsernames: [
-          auth.currentUser.email,
-          selectedUser.username,
-        ],
+        participantUsernames: [currentUsername, selectedUser.username],
         lastMessage: "",
         lastMessageAt: serverTimestamp(),
         createdAt: serverTimestamp(),
@@ -104,7 +113,7 @@ export default function Chat() {
 
     await addDoc(collection(db, "chats", chatId, "messages"), {
       senderId: currentUid,
-      senderUsername: auth.currentUser.email,
+      senderUsername: currentUsername,
       text: text.trim(),
       type: "text",
       createdAt: serverTimestamp(),
@@ -113,6 +122,7 @@ export default function Chat() {
     await updateDoc(doc(db, "chats", chatId), {
       lastMessage: text.trim(),
       lastMessageAt: serverTimestamp(),
+      [`unreadCounts.${selectedUser.id}`]: increment(1),
     });
 
     setText("");

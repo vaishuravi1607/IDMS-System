@@ -29,9 +29,13 @@ export default function Library() {
 
   const filtered = useMemo(() => {
     return documents.filter((item) => {
-      const matchesSearch = !search.trim()
+      const keyword = search.trim().toLowerCase();
+      const matchesSearch = !keyword
         ? true
-        : item.referenceNo?.toLowerCase().includes(search.trim().toLowerCase());
+        : item.refNo?.toLowerCase().includes(keyword) ||
+          item.title?.toLowerCase().includes(keyword) ||
+          item.type?.toLowerCase().includes(keyword) ||
+          item.department?.toLowerCase().includes(keyword);
 
       const matchesFilter =
         filter === "All" ? true : item.departments?.includes(filter);
@@ -93,7 +97,7 @@ export default function Library() {
 
               return (
                 <tr key={docItem.id}>
-                  <td>{docItem.referenceNo}</td>
+                  <td>{docItem.refNo}</td>
                   <td>{docItem.title}</td>
                   <td>{docItem.type}</td>
                   <td>{docItem.departments?.join(", ")}</td>

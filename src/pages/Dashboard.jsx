@@ -118,6 +118,11 @@ function BarChartSvg({ data }) {
     ...data.flatMap((item) => [item.incoming, item.outgoing])
   );
 
+  const niceMax = Math.ceil(maxValue / 5) * 5 || 5;
+  const ticks = Array.from({ length: 5 }, (_, i) =>
+    Math.round((niceMax / 4) * i)
+  );
+
   const chartHeight = 220;
   const chartBottom = 250;
   const baseY = chartBottom;
@@ -127,8 +132,8 @@ function BarChartSvg({ data }) {
 
   return (
     <svg viewBox="0 0 360 280" className="bar-chart-svg">
-      {[0, 5, 10, 15, 20].map((tick, index) => {
-        const y = baseY - (tick / 20) * 180;
+      {ticks.map((tick) => {
+        const y = baseY - (tick / niceMax) * 180;
         return (
           <g key={tick}>
             <line x1="42" y1={y} x2="330" y2={y} className="bar-grid-line" />
@@ -144,8 +149,8 @@ function BarChartSvg({ data }) {
 
       {data.map((item, index) => {
         const groupX = startX + index * groupGap;
-        const incomingHeight = (item.incoming / maxValue) * chartHeight;
-        const outgoingHeight = (item.outgoing / maxValue) * chartHeight;
+        const incomingHeight = (item.incoming / niceMax) * chartHeight;
+        const outgoingHeight = (item.outgoing / niceMax) * chartHeight;
 
         return (
           <g key={item.label}>

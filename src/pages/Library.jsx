@@ -31,7 +31,7 @@ export default function Library() {
     return documents.filter((item) => {
       const matchesSearch = !search.trim()
         ? true
-        : item.referenceNo?.toLowerCase().includes(search.trim().toLowerCase());
+        : item.refNo?.toLowerCase().includes(search.trim().toLowerCase());
 
       const matchesFilter =
         filter === "All" ? true : item.departments?.includes(filter);
@@ -93,7 +93,7 @@ export default function Library() {
 
               return (
                 <tr key={docItem.id}>
-                  <td>{docItem.referenceNo}</td>
+                  <td>{docItem.refNo}</td>
                   <td>{docItem.title}</td>
                   <td>{docItem.type}</td>
                   <td>{docItem.departments?.join(", ")}</td>

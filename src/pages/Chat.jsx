@@ -4,6 +4,7 @@ import {
   collection,
   doc,
   getDoc,
+  increment,
   onSnapshot,
   orderBy,
   query,
@@ -61,6 +62,9 @@ export default function Chat() {
 
     const chatId = createChatId(currentUid, selectedUser.id);
 
+    const chatRef = doc(db, "chats", chatId);
+    updateDoc(chatRef, { [`unreadCounts.${currentUid}`]: 0 }).catch(() => {});
+
     const msgQ = query(
       collection(db, "chats", chatId, "messages"),
       orderBy("createdAt", "asc")
@@ -113,6 +117,7 @@ export default function Chat() {
     await updateDoc(doc(db, "chats", chatId), {
       lastMessage: text.trim(),
       lastMessageAt: serverTimestamp(),
+      [`unreadCounts.${selectedUser.id}`]: increment(1),
     });
 
     setText("");

@@ -346,6 +346,23 @@ body {
   color: rgba(255, 255, 255, 0.25);
 }
 
+/* ─── SIGNUP PAGE ────────────────────────────────── */
+
+.signup-heading {
+  margin: 0 0 18px;
+  font-size: 17px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+}
+
+.signup-success-msg {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #4dd9a5;
+  text-align: center;
+}
+
 /* ─── SHARED UTILITY (used by Signup / ResetPassword) ── */
 
 .error-paragraph {

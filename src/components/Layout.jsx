@@ -111,6 +111,8 @@ export default function Layout({ children }) {
   return (
     <div className="app-shell">
       <aside className={sidebarOpen ? "sidebar" : "sidebar closed"}>
+        <div className="sidebar-brand">IDMS</div>
+
         <nav className="sidebar-nav">
           {links.map((link) => (
             <NavLink
@@ -125,7 +127,9 @@ export default function Layout({ children }) {
           ))}
         </nav>
 
-        <div className="sidebar-footer"></div>
+        <div className="sidebar-footer">
+          © 2026 Unit Teknologi Maklumat, IPK Perak
+        </div>
       </aside>
 
       <div className="main-panel">

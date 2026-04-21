@@ -156,11 +156,10 @@ export default function Signup() {
       await signOut(auth);
       setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
-      console.error("Signup error:", err);
       try {
         if (createdUser) await deleteUser(createdUser);
-      } catch (cleanupErr) {
-        console.error("Cleanup error:", cleanupErr);
+      } catch {
+        // cleanup best-effort
       }
       setFormError(firebaseErrorMessage(err.code));
     } finally {

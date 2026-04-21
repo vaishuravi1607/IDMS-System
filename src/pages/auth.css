@@ -376,3 +376,45 @@ body {
   font-size: 13px;
   margin: 0;
 }
+
+/* ─── AUTH STATUS BLOCKS (ForgotPassword / ResetPassword) ── */
+
+.auth-status-block {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.auth-status-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+  text-align: center;
+  margin: 0 0 12px;
+}
+
+.auth-status-success {
+  font-size: 13px;
+  color: #4dd9a5;
+  text-align: center;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.auth-status-error {
+  font-size: 13px;
+  color: #ff7b7b;
+  text-align: center;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ─── RESET PASSWORD ─────────────────────────────────── */
+
+.reset-account-email {
+  font-size: 12px;
+  color: rgba(197, 161, 0, 0.85);
+  text-align: center;
+  margin: 0 0 16px;
+  letter-spacing: 0.3px;
+}

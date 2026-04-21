@@ -40,10 +40,12 @@ function GoogleIcon() {
   );
 }
 
+const isEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
 const validateField = (name, value) => {
   if (name === "username") {
-    if (!value.trim()) return "Username is required";
-    if (value.trim().length < 3) return "Minimum 3 characters";
+    if (!value.trim()) return "Username or email is required";
+    if (!isEmail(value) && value.trim().length < 3) return "Minimum 3 characters";
   }
   if (name === "password") {
     if (!value) return "Password is required";
@@ -84,25 +86,25 @@ export default function Login() {
     try {
       setLoading(true);
 
-      const q = query(
-        collection(db, "users"),
-        where("username", "==", username.trim()),
-        limit(1)
-      );
+      let emailToUse = username.trim();
 
-      const result = await getDocs(q);
-
-      if (result.empty) {
-        setLoginError("Invalid username or password.");
-        return;
+      if (!isEmail(emailToUse)) {
+        const q = query(
+          collection(db, "users"),
+          where("username", "==", emailToUse),
+          limit(1)
+        );
+        const result = await getDocs(q);
+        if (result.empty) {
+          setLoginError("Invalid username or password.");
+          return;
+        }
+        emailToUse = result.docs[0].data().email;
       }
 
-      const userDoc = result.docs[0].data();
-      await signInWithEmailAndPassword(auth, userDoc.email, password);
-
+      await signInWithEmailAndPassword(auth, emailToUse, password);
       navigate("/dashboard");
-    } catch (err) {
-      console.error(err);
+    } catch {
       setLoginError("Invalid username or password.");
     } finally {
       setLoading(false);
@@ -130,7 +132,6 @@ export default function Login() {
 
       navigate("/dashboard");
     } catch (err) {
-      console.error(err);
       if (err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request") {
         return;
       }
@@ -161,7 +162,7 @@ export default function Login() {
             <form onSubmit={handleLogin} className="login-form" noValidate>
 
               <div className="form-group">
-                <label>Username</label>
+                <label>Username or Email</label>
                 <input
                   type="text"
                   value={username}
@@ -210,7 +211,7 @@ export default function Login() {
                 <button
                   type="button"
                   className="text-link"
-                  onClick={() => navigate("/reset-password")}
+                  onClick={() => navigate("/forgot-password")}
                 >
                   Forgot Password?
                 </button>

@@ -698,10 +698,13 @@ export default function Library() {
                             {docItem.fileUrl && (
                               <a
                                 className="library-v2-icon-btn"
-                                href={docItem.fileUrl}
+                                href={
+                                  docItem.fileId
+                                    ? `https://drive.google.com/uc?export=download&id=${docItem.fileId}`
+                                    : docItem.fileUrl
+                                }
                                 target="_blank"
                                 rel="noreferrer"
-                                download
                                 aria-label="Download"
                               >
                                 <DownloadIcon />

@@ -604,7 +604,7 @@ export default function Layout({ children }) {
       <aside className={sidebarOpen ? "sidebar" : "sidebar closed"}>
         <div className="sidebar-brand">
           <img
-            src="/images/pdrm-logo.png"
+            src="/images/logo.png"
             alt="PDRM"
             className="sidebar-brand-logo"
             onError={(e) => {

@@ -94,6 +94,14 @@ function TrashIcon() {
   );
 }
 
+function CheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <path d="M5 12L10 17L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function SortArrowsIcon({ active, direction }) {
   return (
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="library-v2-sort-icon">
@@ -127,7 +135,7 @@ function ChevronRightIcon() {
 
 function HeaderDocIcon() {
   return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
       <path
         d="M7 3H14L19 8V21H7C5.9 21 5 20.1 5 19V5C5 3.9 5.9 3 7 3Z"
         stroke="#2f80ed"
@@ -255,6 +263,20 @@ export default function Library() {
     });
     return counts;
   }, [statusFilteredDocs]);
+
+  // Unread (pending) counts per department — always based on the full document
+  // set, so users can see at a glance how many docs still need attention even
+  // when a status filter is applied.
+  const unreadCounts = useMemo(() => {
+    const pendingDocs = documents.filter(
+      (d) => String(d.status || "pending").toLowerCase() === "pending"
+    );
+    const counts = { All: pendingDocs.length };
+    DEPARTMENT_FILTERS.slice(1).forEach((dept) => {
+      counts[dept] = pendingDocs.filter((d) => d.departments?.includes(dept)).length;
+    });
+    return counts;
+  }, [documents]);
 
   const processedDocs = useMemo(() => {
     let result = [...statusFilteredDocs];
@@ -451,6 +473,7 @@ export default function Library() {
           </div>
         </div>
 
+        {/* Toolbar: search on top, dropdowns below */}
         <div className="library-v2-toolbar">
           <div className="library-v2-search-wrap">
             <input
@@ -507,16 +530,30 @@ export default function Library() {
         </div>
 
         <div className="library-v2-pills">
-          {DEPARTMENT_FILTERS.map((dept) => (
-            <button
-              key={dept}
-              type="button"
-              className={`library-v2-pill ${deptFilter === dept ? "active" : ""}`}
-              onClick={() => setDeptFilter(dept)}
-            >
-              {dept} ({deptCounts[dept] || 0})
-            </button>
-          ))}
+          {DEPARTMENT_FILTERS.map((dept) => {
+            const unread = unreadCounts[dept] || 0;
+            return (
+              <button
+                key={dept}
+                type="button"
+                className={`library-v2-pill ${deptFilter === dept ? "active" : ""}`}
+                onClick={() => setDeptFilter(dept)}
+              >
+                <span className="library-v2-pill-label">
+                  {dept} ({deptCounts[dept] || 0})
+                </span>
+                {unread > 0 && (
+                  <span
+                    className="library-v2-pill-badge"
+                    title={`${unread} pending`}
+                    aria-label={`${unread} unread pending`}
+                  >
+                    {unread > 99 ? "99+" : unread}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         <div className="library-v2-table-card">
@@ -677,6 +714,7 @@ export default function Library() {
                                 className="library-v2-done-btn"
                                 onClick={() => markProcessed(docItem.id)}
                               >
+                                <CheckIcon />
                                 Mark as Done
                               </button>
                             )}

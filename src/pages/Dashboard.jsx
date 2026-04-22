@@ -706,7 +706,6 @@ export default function Dashboard() {
       <div className="dashboard-screen dashboard-fixed-layout">
         <div className="dashboard-top-row">
           <h1 className="dashboard-main-title">Dashboard</h1>
-
           <div className="dashboard-search-wrap">
             <input
               className="dashboard-search-input"

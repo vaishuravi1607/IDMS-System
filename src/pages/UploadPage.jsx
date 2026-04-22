@@ -38,7 +38,7 @@ export default function UploadPage() {
     setSuccess("");
 
     if (!refNo.trim() || !title.trim() || !type.trim()) {
-      setError("Please complete Ref. No., Title and Type.");
+      setError("Please complete Ref. No., Title and Type.....");
       return;
     }
 

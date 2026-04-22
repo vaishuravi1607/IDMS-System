@@ -540,7 +540,7 @@ export default function Dashboard() {
     const totalCount = filteredDocuments.length;
 
     const pendingDocs = filteredDocuments.filter(
-      (d) => String(d.status || "").toLowerCase() === "pending"
+      (d) => !d.status || String(d.status).toLowerCase() === "pending"
     );
 
     const viewedDocs = filteredDocuments.filter(

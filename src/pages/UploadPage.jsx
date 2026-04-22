@@ -59,6 +59,7 @@ export default function UploadPage() {
         department: departments.join(", "),
         departments,
         createdAt: serverTimestamp(),
+        status: "pending",
       });
 
       setSuccess("Document uploaded successfully.");

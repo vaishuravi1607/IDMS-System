@@ -1045,10 +1045,8 @@ a {
 .dashboard-modal-body::-webkit-scrollbar-thumb:hover {
   background: #9aa1ae;
 }
-
 /* =========================================================
    NEW LIBRARY PAGE STYLES
-   Append these to the end of your App.css file
 ========================================================= */
 
 .library-v2-screen {
@@ -1429,6 +1427,7 @@ a {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: nowrap;
 }
 
 .library-v2-view-btn {
@@ -1461,6 +1460,25 @@ a {
   background: #1e40af;
 }
 
+.library-v2-done-btn {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.library-v2-done-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
 .library-v2-icon-btn {
   width: 34px;
   height: 34px;
@@ -1475,6 +1493,7 @@ a {
   text-decoration: none;
   transition: all 0.15s ease;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .library-v2-icon-btn:hover {
@@ -1483,61 +1502,14 @@ a {
   color: #334155;
 }
 
-/* ===== 3-dot Menu ===== */
-.library-v2-menu-wrap {
-  position: relative;
-}
-
-.library-v2-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  min-width: 160px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-  z-index: 50;
-  overflow: hidden;
-  animation: libraryMenuFadeIn 0.12s ease;
-}
-
-@keyframes libraryMenuFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.library-v2-menu-item {
-  display: block;
-  width: 100%;
-  padding: 10px 14px;
-  border: none;
-  background: transparent;
-  color: #334155;
-  font-size: 13px;
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
-  transition: background-color 0.1s ease;
-}
-
-.library-v2-menu-item:hover {
-  background: #f1f5f9;
-}
-
-.library-v2-menu-item.danger {
+.library-v2-delete-btn {
   color: #dc2626;
-  border-top: 1px solid #f1f5f9;
 }
 
-.library-v2-menu-item.danger:hover {
+.library-v2-delete-btn:hover {
   background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
 }
 
 /* ===== Empty State ===== */

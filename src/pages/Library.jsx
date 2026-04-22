@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   arrayUnion,
   collection,
@@ -40,7 +40,6 @@ const SORT_OPTIONS = [
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
-/* ---------------- ICONS ---------------- */
 function SearchIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -83,12 +82,14 @@ function DownloadIcon() {
   );
 }
 
-function DotsIcon() {
+function TrashIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="12" cy="5" r="1.8" />
-      <circle cx="12" cy="12" r="1.8" />
-      <circle cx="12" cy="19" r="1.8" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M3 6H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M8 6V4C8 3.45 8.45 3 9 3H15C15.55 3 16 3.45 16 4V6" stroke="currentColor" strokeWidth="2" />
+      <path d="M19 6L18.3 18.5C18.24 19.37 17.52 20 16.65 20H7.35C6.48 20 5.76 19.37 5.7 18.5L5 6" stroke="currentColor" strokeWidth="2" />
+      <path d="M10 11V16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M14 11V16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -163,19 +164,12 @@ function MiniFileIcon({ type }) {
 function LibraryIllustration() {
   return (
     <svg viewBox="0 0 240 140" xmlns="http://www.w3.org/2000/svg" className="library-v2-illustration-svg">
-      {/* Decorative leaves */}
       <path d="M30 90 Q25 75 35 65 Q45 75 40 90 Z" fill="#a7d9b8" opacity="0.7" />
       <path d="M40 95 Q38 82 48 76 Q55 88 50 98 Z" fill="#8fcda4" opacity="0.6" />
-
-      {/* Dots */}
       <circle cx="55" cy="45" r="3" fill="#60a5fa" opacity="0.5" />
       <circle cx="215" cy="110" r="2.5" fill="#fbbf24" opacity="0.7" />
       <circle cx="205" cy="35" r="2" fill="#34d399" opacity="0.6" />
-
-      {/* Back document */}
       <rect x="100" y="30" width="70" height="85" rx="4" fill="#dbeafe" stroke="#93c5fd" strokeWidth="1.5" transform="rotate(-8 135 72)" />
-
-      {/* Main document */}
       <rect x="115" y="25" width="70" height="85" rx="4" fill="white" stroke="#3b82f6" strokeWidth="1.5" />
       <line x1="122" y1="40" x2="178" y2="40" stroke="#93c5fd" strokeWidth="1.5" strokeLinecap="round" />
       <line x1="122" y1="50" x2="178" y2="50" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
@@ -183,8 +177,6 @@ function LibraryIllustration() {
       <line x1="122" y1="70" x2="178" y2="70" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
       <line x1="122" y1="80" x2="160" y2="80" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
       <line x1="122" y1="90" x2="175" y2="90" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
-
-      {/* Folder front */}
       <path
         d="M150 75 L190 75 L195 82 L225 82 Q228 82 228 85 L228 120 Q228 124 225 124 L150 124 Q146 124 146 120 L146 79 Q146 75 150 75 Z"
         fill="#3b82f6"
@@ -197,7 +189,6 @@ function LibraryIllustration() {
   );
 }
 
-/* ---------------- HELPERS ---------------- */
 function normalizeTypeKey(type) {
   return String(type || "").toLowerCase().trim();
 }
@@ -216,7 +207,6 @@ function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
-/* ---------------- COMPONENT ---------------- */
 export default function Library() {
   const [documents, setDocuments] = useState([]);
   const [search, setSearch] = useState("");
@@ -227,12 +217,9 @@ export default function Library() {
   const [pageSize, setPageSize] = useState(10);
   const [sortColumn, setSortColumn] = useState(null);
   const [sortDirection, setSortDirection] = useState("asc");
-  const [openMenuId, setOpenMenuId] = useState(null);
 
   const [searchParams] = useSearchParams();
   const statusFilter = String(searchParams.get("status") || "all").toLowerCase();
-
-  const menuRef = useRef(null);
 
   useEffect(() => {
     const q = query(collection(db, "documents"), orderBy("createdAt", "desc"));
@@ -249,23 +236,10 @@ export default function Library() {
     return () => unsub();
   }, []);
 
-  // Close the 3-dot menu when clicking outside
-  useEffect(() => {
-    const handler = (e) => {
-      if (!e.target.closest(".library-v2-menu-wrap")) {
-        setOpenMenuId(null);
-      }
-    };
-    document.addEventListener("click", handler);
-    return () => document.removeEventListener("click", handler);
-  }, []);
-
-  // Reset to page 1 whenever filters change
   useEffect(() => {
     setPage(1);
   }, [search, typeFilter, deptFilter, statusFilter, sortBy, sortColumn, sortDirection, pageSize]);
 
-  // Base list after status filter (for accurate pill counts when coming from dashboard card)
   const statusFilteredDocs = useMemo(() => {
     if (statusFilter === "all") return documents;
     return documents.filter((item) => {
@@ -274,7 +248,6 @@ export default function Library() {
     });
   }, [documents, statusFilter]);
 
-  // Department counts (based on status-filtered docs)
   const deptCounts = useMemo(() => {
     const counts = { All: statusFilteredDocs.length };
     DEPARTMENT_FILTERS.slice(1).forEach((dept) => {
@@ -283,7 +256,6 @@ export default function Library() {
     return counts;
   }, [statusFilteredDocs]);
 
-  // Main filtered + sorted list
   const processedDocs = useMemo(() => {
     let result = [...statusFilteredDocs];
 
@@ -311,19 +283,18 @@ export default function Library() {
       result = result.filter((item) => item.departments?.includes(deptFilter));
     }
 
-    // Column sort overrides dropdown sort
     if (sortColumn) {
       const getKey = (item) => {
         if (sortColumn === "title") return String(item.title || "").toLowerCase();
         if (sortColumn === "type") return normalizeTypeKey(item.type);
-        if (sortColumn === "department")
+        if (sortColumn === "department") {
           return String(item.departments?.join(",") || "").toLowerCase();
-        if (sortColumn === "status")
-          return String(item.status || "pending").toLowerCase();
-        if (sortColumn === "date")
-          return item.createdAt?.toDate?.() || new Date(0);
+        }
+        if (sortColumn === "status") return String(item.status || "pending").toLowerCase();
+        if (sortColumn === "date") return item.createdAt?.toDate?.() || new Date(0);
         return "";
       };
+
       result.sort((a, b) => {
         const ak = getKey(a);
         const bk = getKey(b);
@@ -358,7 +329,6 @@ export default function Library() {
     return result;
   }, [statusFilteredDocs, search, typeFilter, deptFilter, sortColumn, sortDirection, sortBy]);
 
-  // Pagination
   const totalPages = Math.max(1, Math.ceil(processedDocs.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const startIdx = (currentPage - 1) * pageSize;
@@ -367,33 +337,39 @@ export default function Library() {
 
   const getPageNumbers = () => {
     const pages = [];
+
     if (totalPages <= 7) {
       for (let i = 1; i <= totalPages; i++) pages.push(i);
       return pages;
     }
+
     if (currentPage <= 4) {
       return [1, 2, 3, 4, "...", totalPages];
     }
+
     if (currentPage >= totalPages - 3) {
       return [1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
     }
+
     return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
   };
 
-  // Actions
   const markViewed = async (docItem) => {
     if (!auth.currentUser?.uid || !docItem?.id) return;
+
     try {
       const payload = {
         viewedBy: arrayUnion(auth.currentUser.uid),
         viewed: true,
       };
+
       if (
         String(docItem.status || "").toLowerCase() === "pending" ||
         !docItem.status
       ) {
         payload.status = "viewed";
       }
+
       await updateDoc(doc(db, "documents", docItem.id), payload);
     } catch (err) {
       console.error("Failed to mark viewed:", err);
@@ -402,6 +378,7 @@ export default function Library() {
 
   const markProcessed = async (id) => {
     if (!id) return;
+
     try {
       await updateDoc(doc(db, "documents", id), { status: "processed" });
     } catch (err) {
@@ -411,6 +388,7 @@ export default function Library() {
 
   const deleteDocument = async (id) => {
     if (!id) return;
+
     try {
       await deleteDoc(doc(db, "documents", id));
     } catch (err) {
@@ -442,19 +420,21 @@ export default function Library() {
   };
 
   const getSubtitle = () => {
-    if (statusFilter === "pending")
+    if (statusFilter === "pending") {
       return "Showing all pending documents that still need attention.";
-    if (statusFilter === "viewed")
+    }
+    if (statusFilter === "viewed") {
       return "Showing documents that have already been opened or reviewed.";
-    if (statusFilter === "processed")
+    }
+    if (statusFilter === "processed") {
       return "Showing completed documents that have already been handled.";
+    }
     return "Search, filter, view and manage uploaded documents.";
   };
 
   return (
     <Layout>
       <div className="library-v2-screen">
-        {/* Page Header */}
         <div className="library-v2-header">
           <div className="library-v2-header-content">
             <div className="library-v2-header-icon-wrap">
@@ -465,12 +445,12 @@ export default function Library() {
               <p className="library-v2-subtitle">{getSubtitle()}</p>
             </div>
           </div>
+
           <div className="library-v2-illustration">
             <LibraryIllustration />
           </div>
         </div>
 
-        {/* Toolbar: Search + 3 Dropdowns */}
         <div className="library-v2-toolbar">
           <div className="library-v2-search-wrap">
             <input
@@ -526,7 +506,6 @@ export default function Library() {
           </div>
         </div>
 
-        {/* Filter Pills with Counts */}
         <div className="library-v2-pills">
           {DEPARTMENT_FILTERS.map((dept) => (
             <button
@@ -540,7 +519,6 @@ export default function Library() {
           ))}
         </div>
 
-        {/* Table */}
         <div className="library-v2-table-card">
           <div className="library-v2-table-scroll">
             <table className="library-v2-table">
@@ -610,9 +588,7 @@ export default function Library() {
                   </tr>
                 ) : (
                   paginatedDocs.map((docItem) => {
-                    const viewed = docItem.viewedBy?.includes(
-                      auth.currentUser?.uid
-                    );
+                    const viewed = docItem.viewedBy?.includes(auth.currentUser?.uid);
                     const statusText = getStatusText(docItem.status);
                     const statusClass = getStatusClass(docItem.status);
                     const typeLower = normalizeTypeKey(docItem.type);
@@ -622,6 +598,7 @@ export default function Library() {
                         <td className="library-v2-ref">
                           {docItem.refNo || "-"}
                         </td>
+
                         <td className="library-v2-title-cell">
                           <div className="library-v2-title-text">
                             {(docItem.title || "-").toUpperCase()}
@@ -631,6 +608,7 @@ export default function Library() {
                             <span>{capitalize(docItem.type || "")}</span>
                           </div>
                         </td>
+
                         <td>
                           <span
                             className={`library-v2-type-badge type-${typeLower || "default"}`}
@@ -638,24 +616,24 @@ export default function Library() {
                             {(docItem.type || "-").toUpperCase()}
                           </span>
                         </td>
+
                         <td className="library-v2-dept-cell">
-                          {docItem.departments?.join(", ") ||
-                            docItem.department ||
-                            "-"}
+                          {docItem.departments?.join(", ") || docItem.department || "-"}
                         </td>
+
                         <td>
                           <div className="library-v2-date">
                             <CalendarIcon />
                             <span>{formatDate(docItem.createdAt)}</span>
                           </div>
                         </td>
+
                         <td>
-                          <span
-                            className={`library-v2-status-badge ${statusClass}`}
-                          >
+                          <span className={`library-v2-status-badge ${statusClass}`}>
                             {statusText}
                           </span>
                         </td>
+
                         <td>
                           <div className="library-v2-action-row">
                             {docItem.fileUrl ? (
@@ -693,54 +671,32 @@ export default function Library() {
                               </a>
                             )}
 
-                            <div className="library-v2-menu-wrap">
+                            {statusText !== "Processed" && (
                               <button
                                 type="button"
-                                className="library-v2-icon-btn"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setOpenMenuId(
-                                    openMenuId === docItem.id ? null : docItem.id
-                                  );
-                                }}
-                                aria-label="More actions"
+                                className="library-v2-done-btn"
+                                onClick={() => markProcessed(docItem.id)}
                               >
-                                <DotsIcon />
+                                Mark as Done
                               </button>
+                            )}
 
-                              {openMenuId === docItem.id && (
-                                <div className="library-v2-menu">
-                                  {statusText !== "Processed" && (
-                                    <button
-                                      type="button"
-                                      className="library-v2-menu-item"
-                                      onClick={() => {
-                                        markProcessed(docItem.id);
-                                        setOpenMenuId(null);
-                                      }}
-                                    >
-                                      Mark as Done
-                                    </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    className="library-v2-menu-item danger"
-                                    onClick={() => {
-                                      if (
-                                        window.confirm(
-                                          "Are you sure you want to delete this document?"
-                                        )
-                                      ) {
-                                        deleteDocument(docItem.id);
-                                      }
-                                      setOpenMenuId(null);
-                                    }}
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                            <button
+                              type="button"
+                              className="library-v2-icon-btn library-v2-delete-btn"
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    "Are you sure you want to delete this document?"
+                                  )
+                                ) {
+                                  deleteDocument(docItem.id);
+                                }
+                              }}
+                              aria-label="Delete"
+                            >
+                              <TrashIcon />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -751,12 +707,10 @@ export default function Library() {
             </table>
           </div>
 
-          {/* Pagination */}
           {processedDocs.length > 0 && (
             <div className="library-v2-pagination">
               <div className="library-v2-pagination-info">
-                Showing {startIdx + 1} to {endIdx} of {processedDocs.length}{" "}
-                documents
+                Showing {startIdx + 1} to {endIdx} of {processedDocs.length} documents
               </div>
 
               <div className="library-v2-pagination-controls">

@@ -1834,6 +1834,142 @@ a {
   pointer-events: none;
 }
 
+.lib-email-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+.lib-email-card {
+  background: #fff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 620px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  overflow: hidden;
+}
+.lib-email-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.lib-email-subject {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+  line-height: 1.4;
+}
+.lib-email-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+  padding: 2px;
+  flex-shrink: 0;
+}
+.lib-email-close:hover { color: #1e293b; }
+.lib-email-meta {
+  padding: 12px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lib-email-meta-row {
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+}
+.lib-email-meta-label {
+  color: #94a3b8;
+  font-weight: 500;
+  min-width: 36px;
+}
+.lib-email-meta-value { color: #334155; }
+.lib-email-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  font-size: 13.5px;
+  color: #374151;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.lib-email-attachment {
+  padding: 10px 20px;
+  border-top: 1px solid #f1f5f9;
+}
+.lib-email-attachment-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #2563eb;
+  font-weight: 500;
+  text-decoration: none;
+}
+.lib-email-attachment-link:hover { text-decoration: underline; }
+.lib-email-footer {
+  padding: 12px 20px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+}
+.lib-email-close-btn {
+  padding: 7px 20px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.lib-email-close-btn:hover { background: #f8fafc; }
+
+.library-v2-sync-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 36px;
+  border: 1.5px solid #2563eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.library-v2-sync-btn:hover:not(:disabled) {
+  background: #2563eb;
+  color: #fff;
+}
+.library-v2-sync-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.library-v2-sync-message {
+  font-size: 12px;
+  color: #2563eb;
+  margin: 6px 0 0;
+  text-align: right;
+}
+
 .library-v2-dropdowns {
   display: flex;
   gap: 10px;

@@ -7,6 +7,8 @@ import {
   onSnapshot,
   orderBy,
   query,
+  setDoc,
+  Timestamp,
   updateDoc,
 } from "firebase/firestore";
 import { useSearchParams } from "react-router-dom";
@@ -201,6 +203,71 @@ function normalizeTypeKey(type) {
   return String(type || "").toLowerCase().trim();
 }
 
+function EmailViewModal({ item, onClose }) {
+  return (
+    <div
+      className="lib-email-overlay"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="lib-email-card" onClick={(e) => e.stopPropagation()}>
+        <div className="lib-email-header">
+          <h3 className="lib-email-subject">{item.title || "(No subject)"}</h3>
+          <button type="button" className="lib-email-close" onClick={onClose} aria-label="Close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M6 6L18 18M6 18L18 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="lib-email-meta">
+          <div className="lib-email-meta-row">
+            <span className="lib-email-meta-label">From</span>
+            <span className="lib-email-meta-value">{item.sender || "-"}</span>
+          </div>
+          <div className="lib-email-meta-row">
+            <span className="lib-email-meta-label">Date</span>
+            <span className="lib-email-meta-value">{formatDate(item.createdAt)}</span>
+          </div>
+          <div className="lib-email-meta-row">
+            <span className="lib-email-meta-label">Ref</span>
+            <span className="lib-email-meta-value">{item.refNo || "-"}</span>
+          </div>
+        </div>
+
+        <div className="lib-email-body">
+          {item.emailBody || item.emailSnippet || "No email content stored."}
+        </div>
+
+        {item.fileUrl && (
+          <div className="lib-email-attachment">
+            <a
+              href={item.fileUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="lib-email-attachment-link"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M21 15V19C21 20.1 20.1 21 19 21H5C3.9 21 3 20.1 3 19V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <path d="M7 10L12 15L17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M12 15V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              View Attachment
+            </a>
+          </div>
+        )}
+
+        <div className="lib-email-footer">
+          <button type="button" className="lib-email-close-btn" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function formatDate(ts) {
   if (!ts?.toDate) return "-";
   const d = ts.toDate();
@@ -225,6 +292,10 @@ export default function Library() {
   const [pageSize, setPageSize] = useState(10);
   const [sortColumn, setSortColumn] = useState(null);
   const [sortDirection, setSortDirection] = useState("asc");
+
+  const [syncing, setSyncing]         = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
+  const [emailModal, setEmailModal]   = useState(null);
 
   const [searchParams] = useSearchParams();
   const statusFilter = String(searchParams.get("status") || "all").toLowerCase();
@@ -441,6 +512,59 @@ export default function Library() {
     return "pending";
   };
 
+  const syncEmails = async () => {
+    setSyncing(true);
+    setSyncMessage("");
+    try {
+      const response = await fetch(import.meta.env.VITE_APPS_SCRIPT_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "fetchEmails" }),
+      });
+
+      if (!response.ok) throw new Error(`Server error (HTTP ${response.status})`);
+
+      const result = await response.json();
+      if (result.error) throw new Error(result.error);
+
+      const emails = result.emails || [];
+      if (emails.length === 0) {
+        setSyncMessage("No new emails.");
+        return;
+      }
+
+      // Use Gmail message ID as Firestore doc ID to prevent duplicates on re-sync
+      await Promise.all(
+        emails.map((email) =>
+          setDoc(
+            doc(db, "documents", email.emailId),
+            {
+              type: "EMAIL",
+              title: email.subject || "(No subject)",
+              refNo: "EMAIL-" + email.emailId.slice(0, 8).toUpperCase(),
+              sender: email.sender,
+              fileUrl: email.viewUrl || "",
+              fileId: email.fileId || "",
+              emailSnippet: email.snippet || "",
+              emailBody: email.emailBody || email.snippet || "",
+              department: "",
+              departments: [],
+              createdAt: Timestamp.fromDate(new Date(email.date)),
+              status: "pending",
+            },
+            { merge: true }
+          )
+        )
+      );
+
+      setSyncMessage(`${emails.length} email(s) synced.`);
+    } catch (err) {
+      console.error(err);
+      setSyncMessage("Sync failed: " + err.message);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const getSubtitle = () => {
     if (statusFilter === "pending") {
       return "Showing all pending documents that still need attention.";
@@ -526,7 +650,27 @@ export default function Library() {
                 </option>
               ))}
             </select>
+
+            <button
+              type="button"
+              className="library-v2-sync-btn"
+              onClick={syncEmails}
+              disabled={syncing}
+              title="Sync unread emails from Gmail"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                <path d="M4 12C4 7.58 7.58 4 12 4C14.93 4 17.5 5.55 19 7.93" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <path d="M20 12C20 16.42 16.42 20 12 20C9.07 20 6.5 18.45 5 16.07" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <path d="M19 4L19 8L15 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M5 20L5 16L9 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {syncing ? "Syncing..." : "Sync Emails"}
+            </button>
           </div>
+
+          {syncMessage && (
+            <p className="library-v2-sync-message">{syncMessage}</p>
+          )}
         </div>
 
         <div className="library-v2-pills">
@@ -673,7 +817,19 @@ export default function Library() {
 
                         <td>
                           <div className="library-v2-action-row">
-                            {docItem.fileUrl ? (
+                            {typeLower === "email" ? (
+                              <button
+                                type="button"
+                                className={`library-v2-view-btn ${viewed ? "viewed" : ""}`}
+                                onClick={() => {
+                                  markViewed(docItem);
+                                  setEmailModal(docItem);
+                                }}
+                              >
+                                <EyeIcon />
+                                {viewed ? "Viewed ✓" : "View"}
+                              </button>
+                            ) : docItem.fileUrl ? (
                               <a
                                 className={`library-v2-view-btn ${viewed ? "viewed" : ""}`}
                                 href={docItem.fileUrl}
@@ -810,6 +966,13 @@ export default function Library() {
           )}
         </div>
       </div>
+
+      {emailModal && (
+        <EmailViewModal
+          item={emailModal}
+          onClose={() => setEmailModal(null)}
+        />
+      )}
     </Layout>
   );
 }

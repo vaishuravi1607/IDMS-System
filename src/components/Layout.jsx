@@ -611,7 +611,6 @@ export default function Layout({ children }) {
               e.currentTarget.style.display = "none";
             }}
           />
-          <span className="sidebar-brand-text">IDMS</span>
         </div>
 
         <nav className="sidebar-nav">

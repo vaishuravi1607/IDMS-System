@@ -40,37 +40,28 @@ a {
   padding: 0;
   overflow: hidden;
 }
-
 /* ===== Sidebar Brand (PDRM logo + IDMS text) ===== */
 .sidebar-brand {
-  height: 72px;
-  border-radius: 18px;
-  color: white;
+  height: 90px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 0 12px;
+  justify-content: flex-start;
+  gap: 14px;
+  padding: 0 8px;
   margin-bottom: 22px;
 }
 
 .sidebar-brand-logo {
-  width: 80px;
-  height: 80px;
+  width: 200px;
+  height:200px;
   object-fit: contain;
-  border-radius: 20%;
-  background: #000080;
-  padding: 3px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  background: transparent;  
+  border-radius: 0;         
+  padding: 0;                
+  box-shadow: none;        
   flex-shrink: 0;
 }
 
-.sidebar-brand-text {
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  line-height: 1;
-}
 
 /* ===== Sidebar Nav ===== */
 .sidebar-nav {
@@ -2737,7 +2728,7 @@ a {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #f5f9ff;
+  background: linear-gradient(135deg, #cedeff 0%, #b6c2ff 100%);
   overflow: hidden;
 }
 
@@ -2746,7 +2737,7 @@ a {
   align-items: center;
   justify-content: space-between;
   padding: 14px 20px;
-  background: #fff;
+  background: #ffffff;
   border-bottom: 1.5px solid #e8eef8;
   box-shadow: 0 1px 4px rgba(29, 78, 216, 0.06);
   flex-shrink: 0;
@@ -2982,17 +2973,17 @@ a {
 
 .wa-watermark {
   position: absolute;
-  right: 24px;
+  right: 350px;
   top: 24px;
-  opacity: 0.06;
+  opacity: 0.20;
   pointer-events: none;
   z-index: 0;
   user-select: none;
 }
 
 .wa-watermark img {
-  width: 200px;
-  height: 200px;
+  width: 600px;
+  height: 600px;
   object-fit: contain;
 }
 
@@ -3039,7 +3030,7 @@ a {
 }
 
 .wa-bubble-mine {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: linear-gradient(135deg, #3f75eb, #628af5);
   color: #fff;
   border-bottom-right-radius: 4px;
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.22);
@@ -3421,7 +3412,7 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f8faff 0%, #eff6ff 50%, #faf5ff 100%);
+  background: linear-gradient(135deg, #d7e3ff 0%, #eff6ff 50%, #faf5ff 100%);
 }
 
 .wa-no-chat-inner {
@@ -3434,12 +3425,12 @@ a {
   width: 300px;
   height: 300px;
   object-fit: contain;
-  opacity: 0.15;
+  opacity: 1.15;
   margin-bottom: 20px;
 }
 
 .wa-no-chat-inner h3 {
-  font-size: 20px;
+  font-size: 30px;
   font-weight: 800;
   color: #1e40af;
   margin: 0 0 10px;

@@ -930,7 +930,7 @@ export default function Chat() {
             <div className="wa-messages-area">
               <div className="wa-watermark" aria-hidden="true">
                 <img
-                  src="/images/logo.png"
+                  src="/images/chat_logo.png"
                   alt=""
                   onError={(e) => {
                     e.currentTarget.style.display = "none";

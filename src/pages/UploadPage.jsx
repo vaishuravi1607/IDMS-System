@@ -1,9 +1,10 @@
-﻿import { useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import Layout from "../components/Layout";
 import { db } from "../firebase";
 
-const departmentOptions = ["ADMIN TSM", "IT", "SAIFER", "KOMUNIKASI"];
+const DEPARTMENT_OPTIONS = ["ADMIN TSM", "IT", "SAIFER", "KOMUNIKASI"];
+const TYPE_OPTIONS = ["MEMO", "SURAT", "UTUSAN"];
 
 export default function UploadPage() {
   const [refNo, setRefNo] = useState("");
@@ -16,6 +17,7 @@ export default function UploadPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
   const fileInputRef = useRef(null);
 
@@ -24,16 +26,20 @@ export default function UploadPage() {
     if (name.includes("memo")) return "MEMO";
     if (name.includes("surat")) return "SURAT";
     if (name.includes("utusan")) return "UTUSAN";
-    if (name.includes("email")) return "EMAIL";
     return null;
   };
 
-  const toggleDepartment = (department) => {
+  const toggleDepartment = (dept) =>
     setDepartments((prev) =>
-      prev.includes(department)
-        ? prev.filter((item) => item !== department)
-        : [...prev, department]
+      prev.includes(dept) ? prev.filter((d) => d !== dept) : [...prev, dept]
     );
+
+  const handleFile = (file) => {
+    if (!file) return;
+    setPdfFile(file);
+    setError("");
+    const detected = detectTypeFromName(file.name);
+    if (detected) setType(detected);
   };
 
   const resetForm = () => {
@@ -43,6 +49,8 @@ export default function UploadPage() {
     setPdfFile(null);
     setUploadProgress("");
     setDepartments([]);
+    setError("");
+    setSuccess("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -51,26 +59,22 @@ export default function UploadPage() {
     setError("");
     setSuccess("");
 
-    if (!refNo.trim() || !title.trim() || !type.trim()) {
+    if (!refNo.trim() || !title.trim() || !type) {
       setError("Please complete Ref. No., Title and Type.");
       return;
     }
-
     if (departments.length === 0) {
       setError("Please select at least one department.");
       return;
     }
-
     if (!pdfFile) {
-      setError("Please select a PDF file.");
+      setError("Please attach a PDF file.");
       return;
     }
-
     if (pdfFile.type !== "application/pdf") {
       setError("Only PDF files are accepted.");
       return;
     }
-
     if (pdfFile.size > 10 * 1024 * 1024) {
       setError("File is too large. Maximum is 10 MB.");
       return;
@@ -113,8 +117,8 @@ export default function UploadPage() {
         status: "pending",
       });
 
-      setSuccess("Document uploaded successfully.");
       resetForm();
+      setSuccess("Document uploaded successfully.");
     } catch (err) {
       console.error(err);
       setError(err.message || "Failed to upload document.");
@@ -126,145 +130,189 @@ export default function UploadPage() {
 
   return (
     <Layout>
-      <div className="upload-page-screen">
-        <div className="upload-page-title-row">
-          <h1 className="upload-page-title">Upload Data</h1>
-        </div>
+      <div className="upv2-page">
+        <div className="upv2-container">
 
-        <div className="upload-page-divider"></div>
+          <div className="upv2-page-header">
+            <div className="upv2-page-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <div>
+              <h1 className="upv2-title">Upload Document</h1>
+              <p className="upv2-subtitle">Add a new document to the IDMS library</p>
+            </div>
+          </div>
 
-        <div className="upload-card">
-          <form onSubmit={handleSubmit} className="upload-form-exact">
+          <div className="upv2-card">
+            <form onSubmit={handleSubmit} className="upv2-form">
 
-            <div className="upload-form-row">
-              <label className="upload-form-label">Ref. No.</label>
-              <span className="upload-form-colon">:</span>
-              <div className="upload-form-field">
+            <div className="upv2-row-2col">
+              <div className="upv2-field">
+                <label className="upv2-label">Reference No.</label>
                 <input
                   type="text"
                   value={refNo}
                   onChange={(e) => setRefNo(e.target.value)}
-                  className="upload-blue-input"
-                />
-              </div>
-            </div>
-
-            <div className="upload-form-row">
-              <label className="upload-form-label">Title</label>
-              <span className="upload-form-colon">:</span>
-              <div className="upload-form-field">
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="upload-blue-input"
-                />
-              </div>
-            </div>
-
-            <div className="upload-form-row">
-              <label className="upload-form-label">Direction</label>
-              <span className="upload-form-colon">:</span>
-              <div className="upload-form-field">
-                <select
-                  value={direction}
-                  onChange={(e) => setDirection(e.target.value)}
-                  className="upload-blue-input"
-                >
-                  <option value="incoming">Incoming</option>
-                  <option value="outgoing">Outgoing</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="upload-form-row">
-              <label className="upload-form-label">Type</label>
-              <span className="upload-form-colon">:</span>
-              <div className="upload-form-field">
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  className="upload-blue-input"
-                >
-                  <option value="">Select type</option>
-                  <option value="MEMO">MEMO</option>
-                  <option value="SURAT">SURAT</option>
-                  <option value="EMAIL">EMAIL</option>
-                  <option value="UTUSAN">UTUSAN</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="upload-form-row">
-              <label className="upload-form-label">File</label>
-              <span className="upload-form-colon">:</span>
-              <div className="upload-form-field">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="application/pdf"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] || null;
-                    setPdfFile(file);
-                    setError("");
-                    if (file) {
-                      const detected = detectTypeFromName(file.name);
-                      if (detected) setType(detected);
-                    }
-                  }}
-                  className="upload-blue-input"
+                  className="upv2-input"
+                  placeholder="e.g. IPK/2025/001"
                   disabled={loading}
                 />
-                {pdfFile && (
-                  <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#333" }}>
-                    {pdfFile.name} ({(pdfFile.size / 1024).toFixed(1)} KB)
-                  </p>
-                )}
-                {uploadProgress === "uploading" && (
-                  <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#1a56db" }}>
-                    Uploading to Google Drive...
-                  </p>
-                )}
               </div>
-            </div>
-
-            <div className="upload-form-row upload-dept-row">
-              <label className="upload-form-label">Department</label>
-              <span className="upload-form-colon">:</span>
-              <div className="upload-form-field">
-                <div className="upload-department-grid">
-                  {departmentOptions.map((department) => (
-                    <label key={department} className="upload-checkbox-item">
-                      <input
-                        type="checkbox"
-                        checked={departments.includes(department)}
-                        onChange={() => toggleDepartment(department)}
-                      />
-                      <span>{department}</span>
-                    </label>
+              <div className="upv2-field">
+                <label className="upv2-label">Direction</label>
+                <div className="upv2-toggle-group">
+                  {["incoming", "outgoing"].map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      className={`upv2-toggle-btn${direction === d ? " upv2-toggle-active" : ""}`}
+                      onClick={() => setDirection(d)}
+                      disabled={loading}
+                    >
+                      {d === "incoming" ? "Incoming" : "Outgoing"}
+                    </button>
                   ))}
                 </div>
               </div>
             </div>
 
-            {(error || success) && (
-              <div className="upload-message-row">
-                {error && <p className="error-paragraph">{error}</p>}
-                {success && <p className="success-paragraph">{success}</p>}
-              </div>
-            )}
+            <div className="upv2-field">
+              <label className="upv2-label">Title</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="upv2-input"
+                placeholder="Enter document title"
+                disabled={loading}
+              />
+            </div>
 
-            <div className="upload-submit-row">
+            <div className="upv2-field">
+              <label className="upv2-label">Document Type</label>
+              <div className="upv2-type-group">
+                {TYPE_OPTIONS.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className={`upv2-type-btn${type === t ? " upv2-type-active" : ""}`}
+                    onClick={() => setType(t)}
+                    disabled={loading}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="upv2-field">
+              <label className="upv2-label">
+                Department
+                <span className="upv2-label-note"> — select all that apply</span>
+              </label>
+              <div className="upv2-dept-group">
+                {DEPARTMENT_OPTIONS.map((dept) => (
+                  <button
+                    key={dept}
+                    type="button"
+                    className={`upv2-dept-btn${departments.includes(dept) ? " upv2-dept-active" : ""}`}
+                    onClick={() => toggleDepartment(dept)}
+                    disabled={loading}
+                  >
+                    {dept}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="upv2-field">
+              <label className="upv2-label">PDF File</label>
+              <div
+                className={`upv2-dropzone${dragging ? " upv2-dropzone-drag" : ""}${pdfFile ? " upv2-dropzone-filled" : ""}`}
+                onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragging(false);
+                  handleFile(e.dataTransfer.files?.[0] || null);
+                }}
+                onClick={() => !loading && fileInputRef.current?.click()}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  style={{ display: "none" }}
+                  onChange={(e) => handleFile(e.target.files?.[0] || null)}
+                  disabled={loading}
+                />
+                {pdfFile ? (
+                  <div className="upv2-file-info">
+                    <div className="upv2-file-icon">PDF</div>
+                    <div className="upv2-file-meta">
+                      <p className="upv2-file-name">{pdfFile.name}</p>
+                      <p className="upv2-file-size">{(pdfFile.size / 1024).toFixed(1)} KB</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="upv2-file-remove"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPdfFile(null);
+                        if (fileInputRef.current) fileInputRef.current.value = "";
+                      }}
+                    >
+                      &times;
+                    </button>
+                  </div>
+                ) : (
+                  <div className="upv2-drop-placeholder">
+                    <div className="upv2-drop-icon-wrap">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                      </svg>
+                    </div>
+                    <p className="upv2-drop-text">
+                      Drag & drop your PDF here, or <span className="upv2-drop-link">browse</span>
+                    </p>
+                    <p className="upv2-drop-hint">PDF only — max 10 MB</p>
+                  </div>
+                )}
+              </div>
+              {uploadProgress === "uploading" && (
+                <p className="upv2-upload-status">Uploading to Google Drive...</p>
+              )}
+            </div>
+
+            {error && <p className="upv2-error">{error}</p>}
+            {success && <p className="upv2-success">{success}</p>}
+
+            <div className="upv2-actions">
               <button
-                type="submit"
-                className="upload-submit-btn"
+                type="button"
+                className="upv2-clear-btn"
+                onClick={resetForm}
                 disabled={loading}
               >
-                {loading ? "Uploading..." : "Upload"}
+                Clear
+              </button>
+              <button
+                type="submit"
+                className="upv2-submit-btn"
+                disabled={loading}
+              >
+                {loading ? "Uploading..." : "Upload Document"}
               </button>
             </div>
 
           </form>
+          </div>
         </div>
       </div>
     </Layout>

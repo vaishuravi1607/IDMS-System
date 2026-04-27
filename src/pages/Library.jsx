@@ -547,7 +547,7 @@ export default function Library() {
               emailSnippet: email.snippet || "",
               emailBody: email.emailBody || email.snippet || "",
               department: "",
-              departments: [],
+              departments: email.departments || [],
               createdAt: Timestamp.fromDate(new Date(email.date)),
               status: "pending",
             },

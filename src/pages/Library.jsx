@@ -7,6 +7,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  serverTimestamp,
   setDoc,
   Timestamp,
   updateDoc,
@@ -475,7 +476,10 @@ export default function Library() {
     if (!id) return;
 
     try {
-      await updateDoc(doc(db, "documents", id), { status: "processed" });
+      await updateDoc(doc(db, "documents", id), {
+        status: "processed",
+        processedAt: serverTimestamp(),
+      });
     } catch (err) {
       console.error("Failed to mark processed:", err);
       setActionError("Failed to mark as done. Please try again.");

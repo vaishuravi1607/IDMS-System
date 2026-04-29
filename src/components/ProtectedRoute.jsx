@@ -7,10 +7,18 @@ export default function ProtectedRoute({ children }) {
   const [user, setUser] = useState(undefined);
 
   useEffect(() => {
+    // Fallback: if auth listener doesn't fire within 8s (offline/slow), treat as unauthenticated
+    const timeout = setTimeout(() => setUser(null), 8000);
+
     const unsub = onAuthStateChanged(auth, (firebaseUser) => {
+      clearTimeout(timeout);
       setUser(firebaseUser || null);
     });
-    return () => unsub();
+
+    return () => {
+      unsub();
+      clearTimeout(timeout);
+    };
   }, []);
 
   if (user === undefined) {

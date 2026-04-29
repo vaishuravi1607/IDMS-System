@@ -82,7 +82,7 @@ export default function UploadPage() {
 
     try {
       setLoading(true);
-      setUploadProgress("uploading");
+      setUploadProgress("reading");
 
       const base64Data = await new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -90,6 +90,8 @@ export default function UploadPage() {
         reader.onerror = () => reject(new Error("Failed to read file"));
         reader.readAsDataURL(pdfFile);
       });
+
+      setUploadProgress("uploading");
 
       const response = await fetch(import.meta.env.VITE_APPS_SCRIPT_URL, {
         method: "POST",
@@ -102,7 +104,7 @@ export default function UploadPage() {
       if (result.error) throw new Error(result.error);
       if (!result.viewUrl) throw new Error("No viewUrl returned from Drive.");
 
-      setUploadProgress("done");
+      setUploadProgress("saving");
 
       await addDoc(collection(db, "documents"), {
         refNo: refNo.trim(),
@@ -285,8 +287,14 @@ export default function UploadPage() {
                   </div>
                 )}
               </div>
+              {uploadProgress === "reading" && (
+                <p className="upv2-upload-status">Reading file...</p>
+              )}
               {uploadProgress === "uploading" && (
                 <p className="upv2-upload-status">Uploading to Google Drive...</p>
+              )}
+              {uploadProgress === "saving" && (
+                <p className="upv2-upload-status">Saving to library...</p>
               )}
             </div>
 

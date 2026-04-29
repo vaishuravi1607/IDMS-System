@@ -4,7 +4,6 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
   increment,
   limit,
   onSnapshot,
@@ -12,6 +11,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  Timestamp,
   updateDoc,
   where,
 } from "firebase/firestore";
@@ -235,6 +235,7 @@ export default function Chat() {
   const [editingText, setEditingText] = useState("");
 
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [sendError, setSendError] = useState("");
 
   const messagesEndRef = useRef(null);
   const emojiPanelRef = useRef(null);
@@ -249,13 +250,32 @@ export default function Chat() {
     });
   }, [currentUid]);
 
+  // Real-time user list — picks up presence changes (online/lastSeen) instantly
   useEffect(() => {
     if (!currentUid) return;
-    getDocs(collection(db, "users")).then((snap) => {
+    const unsub = onSnapshot(collection(db, "users"), (snap) => {
       setAllUsers(
         snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => u.id !== currentUid)
       );
     });
+    return () => unsub();
+  }, [currentUid]);
+
+  // Mark self online while Chat is open, offline when leaving
+  useEffect(() => {
+    if (!currentUid) return;
+    const userRef = doc(db, "users", currentUid);
+
+    updateDoc(userRef, { online: true, lastSeen: serverTimestamp() }).catch(() => {});
+
+    const markOffline = () =>
+      updateDoc(userRef, { online: false, lastSeen: Timestamp.now() }).catch(() => {});
+
+    window.addEventListener("beforeunload", markOffline);
+    return () => {
+      markOffline();
+      window.removeEventListener("beforeunload", markOffline);
+    };
   }, [currentUid]);
 
   useEffect(() => {
@@ -339,6 +359,13 @@ export default function Chat() {
   const isBlocked = !!chatMeta?.blocked?.[currentUid];
   const clearedAt = chatMeta?.clearedBy?.[currentUid];
 
+  const selectedUserData = useMemo(
+    () => allUsers.find((u) => u.id === selectedUser?.id),
+    [allUsers, selectedUser?.id]
+  );
+  const isSelectedOnline = selectedUserData?.online || false;
+  const selectedLastSeen = selectedUserData?.lastSeen || null;
+
   const selectConversation = (conv) => {
     const otherIdx = conv.participants?.findIndex((p) => p !== currentUid) ?? -1;
     const otherId = otherIdx >= 0 ? conv.participants[otherIdx] : null;
@@ -356,46 +383,34 @@ export default function Chat() {
     setEditingMsgId(null);
   };
 
-  const startNewConversation = async (user) => {
-    const chatId = createChatId(currentUid, user.id);
+  const getOrCreateChat = async (otherUser) => {
+    const chatId = createChatId(currentUid, otherUser.id);
     const chatRef = doc(db, "chats", chatId);
     const existing = await getDoc(chatRef);
 
     if (!existing.exists()) {
       await setDoc(chatRef, {
-        participants: [currentUid, user.id],
-        participantUsernames: [currentUsername, user.username],
+        participants: [currentUid, otherUser.id],
+        participantUsernames: [currentUsername, otherUser.username],
         lastMessage: "",
         lastMessageAt: serverTimestamp(),
         createdAt: serverTimestamp(),
-        unreadCounts: { [currentUid]: 0, [user.id]: 0 },
+        unreadCounts: { [currentUid]: 0, [otherUser.id]: 0 },
       });
     }
 
+    return chatId;
+  };
+
+  const startNewConversation = async (user) => {
+    const chatId = await getOrCreateChat(user);
     setSelectedChatId(chatId);
     setSelectedUser(user);
     setShowNewConv(false);
     setNewConvSearch("");
   };
 
-  const ensureChat = async () => {
-    const chatId = createChatId(currentUid, selectedUser.id);
-    const chatRef = doc(db, "chats", chatId);
-    const existing = await getDoc(chatRef);
-
-    if (!existing.exists()) {
-      await setDoc(chatRef, {
-        participants: [currentUid, selectedUser.id],
-        participantUsernames: [currentUsername, selectedUser.username],
-        lastMessage: "",
-        lastMessageAt: serverTimestamp(),
-        createdAt: serverTimestamp(),
-        unreadCounts: { [currentUid]: 0, [selectedUser.id]: 0 },
-      });
-    }
-
-    return chatId;
-  };
+  const ensureChat = () => getOrCreateChat(selectedUser);
 
   const sendMessage = async (e) => {
     e?.preventDefault();
@@ -403,22 +418,29 @@ export default function Chat() {
 
     const msgText = text.trim();
     setText("");
+    setSendError("");
 
-    const chatId = selectedChatId || (await ensureChat());
+    try {
+      const chatId = selectedChatId || (await ensureChat());
 
-    await addDoc(collection(db, "chats", chatId, "messages"), {
-      senderId: currentUid,
-      senderUsername: currentUsername,
-      text: msgText,
-      type: "text",
-      createdAt: serverTimestamp(),
-    });
+      await addDoc(collection(db, "chats", chatId, "messages"), {
+        senderId: currentUid,
+        senderUsername: currentUsername,
+        text: msgText,
+        type: "text",
+        createdAt: serverTimestamp(),
+      });
 
-    await updateDoc(doc(db, "chats", chatId), {
-      lastMessage: msgText,
-      lastMessageAt: serverTimestamp(),
-      [`unreadCounts.${selectedUser.id}`]: increment(1),
-    });
+      await updateDoc(doc(db, "chats", chatId), {
+        lastMessage: msgText,
+        lastMessageAt: serverTimestamp(),
+        [`unreadCounts.${selectedUser.id}`]: increment(1),
+      });
+    } catch (err) {
+      console.error("Failed to send message:", err);
+      setText(msgText);
+      setSendError("Failed to send. Please try again.");
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -431,31 +453,41 @@ export default function Chat() {
   const sendLibraryDoc = async (libDoc) => {
     if (!selectedUser) return;
 
-    const chatId = selectedChatId || (await ensureChat());
+    setSendError("");
     const refLabel = libDoc.refNo || libDoc.id;
+    const docDept = Array.isArray(libDoc.departments)
+      ? libDoc.departments.join(", ")
+      : (libDoc.department || "");
 
-    await addDoc(collection(db, "chats", chatId, "messages"), {
-      senderId: currentUid,
-      senderUsername: currentUsername,
-      type: "library_doc",
-      text: "",
-      docId: libDoc.id,
-      docRef: refLabel,
-      docTitle: libDoc.title || "",
-      docType: libDoc.type || "",
-      docDepartment: libDoc.department || "",
-      fileUrl: libDoc.fileUrl || libDoc.url || "",
-      createdAt: serverTimestamp(),
-    });
+    try {
+      const chatId = selectedChatId || (await ensureChat());
 
-    await updateDoc(doc(db, "chats", chatId), {
-      lastMessage: `📄 ${refLabel}`,
-      lastMessageAt: serverTimestamp(),
-      [`unreadCounts.${selectedUser.id}`]: increment(1),
-    });
+      await addDoc(collection(db, "chats", chatId, "messages"), {
+        senderId: currentUid,
+        senderUsername: currentUsername,
+        type: "library_doc",
+        text: "",
+        docId: libDoc.id,
+        docRef: refLabel,
+        docTitle: libDoc.title || "",
+        docType: libDoc.type || "",
+        docDepartment: docDept,
+        fileUrl: libDoc.fileUrl || libDoc.url || "",
+        createdAt: serverTimestamp(),
+      });
 
-    setShowLibPicker(false);
-    setLibSearch("");
+      await updateDoc(doc(db, "chats", chatId), {
+        lastMessage: `📄 ${refLabel}`,
+        lastMessageAt: serverTimestamp(),
+        [`unreadCounts.${selectedUser.id}`]: increment(1),
+      });
+
+      setShowLibPicker(false);
+      setLibSearch("");
+    } catch (err) {
+      console.error("Failed to send document:", err);
+      setSendError("Failed to attach document. Please try again.");
+    }
   };
 
   const startEditMsg = (msg) => {
@@ -525,7 +557,6 @@ export default function Chat() {
       onConfirm: async () => {
         await updateDoc(doc(db, "chats", selectedChatId), {
           [`clearedBy.${currentUid}`]: serverTimestamp(),
-          lastMessage: "",
         });
         setConfirmDialog(null);
       },
@@ -574,11 +605,16 @@ export default function Chat() {
     if (!libSearch.trim()) return libraryDocs;
     const q = libSearch.toLowerCase();
 
-    return libraryDocs.filter((d) =>
-      (d.title || "").toLowerCase().includes(q) ||
-      (d.refNo || "").toLowerCase().includes(q) ||
-      (d.department || "").toLowerCase().includes(q)
-    );
+    return libraryDocs.filter((d) => {
+      const depts = Array.isArray(d.departments)
+        ? d.departments.join(" ")
+        : (d.department || "");
+      return (
+        (d.title || "").toLowerCase().includes(q) ||
+        (d.refNo || "").toLowerCase().includes(q) ||
+        depts.toLowerCase().includes(q)
+      );
+    });
   }, [libraryDocs, libSearch]);
 
   const groupedMessages = useMemo(() => {
@@ -728,10 +764,14 @@ export default function Chat() {
 
   const renderConvItem = (conv) => {
     const otherIdx = conv.participants?.findIndex((p) => p !== currentUid) ?? -1;
+    const otherId = otherIdx >= 0 ? conv.participants[otherIdx] : null;
     const otherName =
       otherIdx >= 0
         ? conv.participantUsernames?.[otherIdx] || conv.participants?.[otherIdx] || "Unknown"
         : "Unknown";
+
+    const otherUserData = allUsers.find((u) => u.id === otherId);
+    const isOnline = otherUserData?.online || false;
 
     const unread = conv.unreadCounts?.[currentUid] || 0;
     const lastMs = toMs(conv.lastMessageAt);
@@ -746,7 +786,7 @@ export default function Chat() {
       >
         <div className="wa-conv-avatar">
           {getInitial(otherName)}
-          <span className="wa-online-dot" />
+          {isOnline && <span className="wa-online-dot" />}
         </div>
 
         <div className="wa-conv-body">
@@ -845,8 +885,22 @@ export default function Chat() {
                 <div>
                   <div className="wa-chat-name">{selectedUser.username}</div>
                   <div className="wa-chat-status">
-                    <span className={`wa-status-dot ${isBlocked ? "blocked" : ""}`} />
-                    {isBlocked ? "Blocked" : "Online"}
+                    {isBlocked ? (
+                      <>
+                        <span className="wa-status-dot blocked" />
+                        Blocked
+                      </>
+                    ) : isSelectedOnline ? (
+                      <>
+                        <span className="wa-status-dot online" />
+                        Online
+                      </>
+                    ) : selectedLastSeen ? (
+                      <>
+                        <span className="wa-status-dot offline" />
+                        Last seen {formatLastSeen(toMs(selectedLastSeen))}
+                      </>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -966,6 +1020,9 @@ export default function Chat() {
               </div>
             ) : (
               <div className="wa-input-area">
+                {sendError && (
+                  <div className="wa-send-error">ⓘ {sendError}</div>
+                )}
                 {showEmoji && (
                   <div className="wa-emoji-panel-wrap" ref={emojiPanelRef}>
                     <EmojiPicker

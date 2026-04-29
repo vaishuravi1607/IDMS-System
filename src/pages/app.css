@@ -2921,9 +2921,16 @@ a {
 .wa-status-dot {
   width: 8px;
   height: 8px;
-  background: #22c55e;
   border-radius: 50%;
   display: inline-block;
+}
+
+.wa-status-dot.online {
+  background: #22c55e;
+}
+
+.wa-status-dot.offline {
+  background: #94a3b8;
 }
 
 .wa-status-dot.blocked {
@@ -3379,6 +3386,19 @@ a {
 }
 
 /* Input area */
+
+.wa-send-error {
+  position: absolute;
+  top: -32px;
+  left: 16px;
+  right: 16px;
+  background: #fff5f5;
+  color: #e53e3e;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #fed7d7;
+}
 
 .wa-input-area {
   display: flex;

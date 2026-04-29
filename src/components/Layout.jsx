@@ -329,7 +329,6 @@ function getFirstName(user) {
 function formatCount(n) {
   if (!n) return "";
   if (n > 99) return "99+";
-  if (n > 9) return "9+";
   return String(n);
 }
 
@@ -458,7 +457,6 @@ export default function Layout({ children }) {
   const notifications = useMemo(() => {
     const now = Date.now();
     const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
-    const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
     const list = [];
 
     documents.forEach((doc) => {
@@ -479,8 +477,8 @@ export default function Layout({ children }) {
         });
       }
 
-      if (doc.status === "processed") {
-        const processedMs = toMillis(doc.processedAt) || createdMs;
+      if (doc.status === "processed" && doc.processedAt) {
+        const processedMs = toMillis(doc.processedAt);
         if (processedMs) {
           list.push({
             id: `${doc.id}_processed`,
@@ -491,38 +489,6 @@ export default function Layout({ children }) {
             docId: doc.id,
           });
         }
-      }
-
-      if (
-        (doc.priority === "urgent" || doc.priority === "high") &&
-        createdMs &&
-        now - createdMs <= THIRTY_DAYS
-      ) {
-        list.push({
-          id: `${doc.id}_urgent`,
-          type: "urgent",
-          title: `Urgent: ${doc.title || ref}`,
-          subtitle: ref,
-          time: createdMs,
-          docId: doc.id,
-        });
-      }
-
-      const dueMs = toMillis(doc.dueDate || doc.deadline);
-      if (
-        dueMs &&
-        dueMs > now &&
-        dueMs - now <= THREE_DAYS &&
-        doc.status !== "processed"
-      ) {
-        list.push({
-          id: `${doc.id}_deadline`,
-          type: "deadline",
-          title: `Deadline approaching: ${doc.title || ref}`,
-          subtitle: `Due ${new Date(dueMs).toLocaleDateString()}`,
-          time: dueMs,
-          docId: doc.id,
-        });
       }
     });
 

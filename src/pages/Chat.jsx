@@ -18,6 +18,8 @@ import {
 import Layout from "../components/Layout";
 import { auth, db } from "../firebase";
 
+const LIBRARY_DOCS_LIMIT = 100;
+
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
 
 function createChatId(uid1, uid2) {
@@ -302,7 +304,7 @@ export default function Chat() {
     const q = query(
       collection(db, "documents"),
       orderBy("createdAt", "desc"),
-      limit(100)
+      limit(LIBRARY_DOCS_LIMIT)
     );
     const unsub = onSnapshot(q, (snap) => {
       setLibraryDocs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));

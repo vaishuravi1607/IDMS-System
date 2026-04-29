@@ -26,7 +26,7 @@ const TYPE_OPTIONS = [
 ];
 
 const DEPT_OPTIONS = [
-  { value: "all", label: "All Departments" },
+  { value: "All", label: "All Departments" },
   { value: "ADMIN TSM", label: "ADMIN TSM" },
   { value: "IT", label: "IT" },
   { value: "SAIFER", label: "SAIFER" },
@@ -296,6 +296,7 @@ export default function Library() {
   const [syncing, setSyncing]         = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
   const [emailModal, setEmailModal]   = useState(null);
+  const [actionError, setActionError] = useState("");
 
   const [searchParams] = useSearchParams();
   const statusFilter = String(searchParams.get("status") || "all").toLowerCase();
@@ -466,6 +467,7 @@ export default function Library() {
       await updateDoc(doc(db, "documents", docItem.id), payload);
     } catch (err) {
       console.error("Failed to mark viewed:", err);
+      setActionError("Failed to mark as viewed. Please try again.");
     }
   };
 
@@ -476,6 +478,7 @@ export default function Library() {
       await updateDoc(doc(db, "documents", id), { status: "processed" });
     } catch (err) {
       console.error("Failed to mark processed:", err);
+      setActionError("Failed to mark as done. Please try again.");
     }
   };
 
@@ -486,6 +489,7 @@ export default function Library() {
       await deleteDoc(doc(db, "documents", id));
     } catch (err) {
       console.error("Failed to delete:", err);
+      setActionError("Failed to delete document. Please try again.");
     }
   };
 
@@ -532,7 +536,9 @@ export default function Library() {
         return;
       }
 
-      // Use Gmail message ID as Firestore doc ID to prevent duplicates on re-sync
+      // Use Gmail message ID as Firestore doc ID to prevent duplicates on re-sync.
+      // Status is intentionally excluded so merge preserves existing status on re-sync.
+      // New docs have no status field; the UI defaults missing status to "pending".
       await Promise.all(
         emails.map((email) =>
           setDoc(
@@ -545,11 +551,10 @@ export default function Library() {
               fileUrl: email.viewUrl || "",
               fileId: email.fileId || "",
               emailSnippet: email.snippet || "",
-              emailBody: email.emailBody || email.snippet || "",
+              emailBody: email.snippet || "",
               department: "",
               departments: email.departments || [],
               createdAt: Timestamp.fromDate(new Date(email.date)),
-              status: "pending",
             },
             { merge: true }
           )
@@ -670,6 +675,11 @@ export default function Library() {
 
           {syncMessage && (
             <p className="library-v2-sync-message">{syncMessage}</p>
+          )}
+          {actionError && (
+            <p className="library-v2-sync-message" style={{ color: "#e53e3e" }}>
+              ⓘ {actionError}
+            </p>
           )}
         </div>
 

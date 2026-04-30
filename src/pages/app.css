@@ -1796,7 +1796,7 @@ a {
 
 .library-v2-search-wrap {
   position: relative;
-  width: 280px;
+  width: 300px;
   min-width: 240px;
 }
 
@@ -3968,7 +3968,7 @@ a {
 .upv3-page {
   min-height: calc(100vh - 70px);
   background: #f3f4f8;
-  padding: 24px 24px 40px;
+  padding: 60px 60px 120px;
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -3981,13 +3981,13 @@ a {
   max-width: 920px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 30px;
 }
 
 /* ── Banner Card (separate top card) ──────────────────── */
 .upv3-banner-card {
   position: relative;
-  background: linear-gradient(135deg, #E0F5FF 0%, #e0eaff 100%);
+  background: linear-gradient(135deg, #f0f5ff 0%, #dbe7ff 100%);
   border-radius: 16px;
   border: 1px solid #d6e2ff;
   padding: 22px 28px;
@@ -4011,7 +4011,7 @@ a {
   width: 56px;
   height: 56px;
   border-radius: 12px;
-  background: #F4F6F7;
+  background: #ffffff;
   border: 1.5px solid #d6e2ff;
   color: #1d4ed8;
   display: flex;

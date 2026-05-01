@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   addDoc,
   collection,
+  deleteField,
   doc,
   getDoc,
   increment,
@@ -236,12 +237,39 @@ export default function Chat() {
 
   const [confirmDialog, setConfirmDialog] = useState(null);
   const [sendError, setSendError] = useState("");
+  const [newConvError, setNewConvError] = useState("");
+  const [tickNowMs, setTickNowMs] = useState(() => Date.now());
+
+  const typingFlushRef = useRef(null);
+  const typingLastSentRef = useRef(0);
+
+  const resolveSenderUsername = async () => {
+    let name = (currentUsername || "").trim();
+    if (!name && currentUid) {
+      const meSnap = await getDoc(doc(db, "users", currentUid));
+      if (meSnap.exists()) {
+        name = String(meSnap.data().username || "").trim();
+        if (name) setCurrentUsername(name);
+      }
+    }
+    if (!name) {
+      name =
+        auth.currentUser?.displayName?.trim() ||
+        auth.currentUser?.email?.split("@")[0]?.trim() ||
+        "";
+    }
+    return name;
+  };
 
   const messagesEndRef = useRef(null);
   const emojiPanelRef = useRef(null);
   const emojiBtnRef = useRef(null);
   const menuRef = useRef(null);
   const inputRef = useRef(null);
+
+  useEffect(() => () => {
+    if (typingFlushRef.current) clearTimeout(typingFlushRef.current);
+  }, []);
 
   useEffect(() => {
     if (!currentUid) return;
@@ -290,11 +318,7 @@ export default function Chat() {
   }, [currentUid]);
 
   useEffect(() => {
-    if (!currentUid || !selectedChatId) {
-      setMessages([]);
-      setChatMeta({});
-      return;
-    }
+    if (!currentUid || !selectedChatId) return;
 
     updateDoc(doc(db, "chats", selectedChatId), {
       [`unreadCounts.${currentUid}`]: 0,
@@ -359,12 +383,70 @@ export default function Chat() {
   const isBlocked = !!chatMeta?.blocked?.[currentUid];
   const clearedAt = chatMeta?.clearedBy?.[currentUid];
 
+  useEffect(() => {
+    if (!selectedChatId || !selectedUser?.id || isBlocked) return undefined;
+    const id = setInterval(() => setTickNowMs(Date.now()), 450);
+    return () => clearInterval(id);
+  }, [selectedChatId, selectedUser?.id, isBlocked]);
+
+  const selectedUserId = selectedUser?.id ?? null;
   const selectedUserData = useMemo(
-    () => allUsers.find((u) => u.id === selectedUser?.id),
-    [allUsers, selectedUser?.id]
+    () => allUsers.find((u) => u.id === selectedUserId),
+    [allUsers, selectedUserId]
   );
   const isSelectedOnline = selectedUserData?.online || false;
   const selectedLastSeen = selectedUserData?.lastSeen || null;
+
+  const flushTypingPresence = async () => {
+    if (!selectedChatId || !currentUid || isBlocked) return;
+    const now = Date.now();
+    if (now - typingLastSentRef.current < 1100) return;
+    typingLastSentRef.current = now;
+    await updateDoc(doc(db, "chats", selectedChatId), {
+      [`typing.${currentUid}`]: now,
+    }).catch(() => {});
+  };
+
+  const scheduleTypingUpdate = () => {
+    if (!selectedChatId || !currentUid || isBlocked) return;
+    if (typingFlushRef.current) clearTimeout(typingFlushRef.current);
+    typingFlushRef.current = setTimeout(() => {
+      typingFlushRef.current = null;
+      flushTypingPresence();
+    }, 450);
+  };
+
+  const otherTypingTimestamp = selectedUser?.id
+    ? chatMeta?.typing?.[selectedUser.id]
+    : null;
+  const otherTypingMs =
+    otherTypingTimestamp != null ? Number(otherTypingTimestamp) : 0;
+  const showOtherTyping =
+    !!selectedUser?.id &&
+    !isBlocked &&
+    !!otherTypingMs &&
+    tickNowMs - otherTypingMs < 5000;
+
+  const confirmDeleteMsg = (msg) => {
+    if (!selectedChatId || !msg?.id || msg.senderId !== currentUid) return;
+    setConfirmDialog({
+      title: "Delete this message?",
+      message: "It will appear as deleted for everyone in this chat.",
+      confirmLabel: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await updateDoc(doc(db, "chats", selectedChatId, "messages", msg.id), {
+            deleted: true,
+            deletedAt: serverTimestamp(),
+          });
+        } catch (e) {
+          console.error("Delete message failed:", e);
+        }
+        setConfirmDialog(null);
+      },
+    });
+  };
 
   const selectConversation = (conv) => {
     const otherIdx = conv.participants?.findIndex((p) => p !== currentUid) ?? -1;
@@ -374,6 +456,8 @@ export default function Chat() {
         ? conv.participantUsernames?.[otherIdx] || otherId || "Unknown"
         : "Unknown";
 
+    setMessages([]);
+    setChatMeta({});
     setSelectedChatId(conv.id);
     setSelectedUser({ id: otherId, username: otherName });
     setShowChatSearch(false);
@@ -389,9 +473,15 @@ export default function Chat() {
     const existing = await getDoc(chatRef);
 
     if (!existing.exists()) {
+      const senderName = await resolveSenderUsername();
+      const otherName =
+        String(otherUser.username || "").trim() ||
+        otherUser.email?.split("@")[0]?.trim() ||
+        "";
+
       await setDoc(chatRef, {
         participants: [currentUid, otherUser.id],
-        participantUsernames: [currentUsername, otherUser.username],
+        participantUsernames: [senderName || "Unknown", otherName || "Unknown"],
         lastMessage: "",
         lastMessageAt: serverTimestamp(),
         createdAt: serverTimestamp(),
@@ -403,11 +493,19 @@ export default function Chat() {
   };
 
   const startNewConversation = async (user) => {
-    const chatId = await getOrCreateChat(user);
-    setSelectedChatId(chatId);
-    setSelectedUser(user);
-    setShowNewConv(false);
-    setNewConvSearch("");
+    setNewConvError("");
+    try {
+      const chatId = await getOrCreateChat(user);
+      setSelectedChatId(chatId);
+      setSelectedUser(user);
+      setShowNewConv(false);
+      setNewConvSearch("");
+    } catch (err) {
+      console.error("Failed to start conversation:", err);
+      setNewConvError(
+        "Couldn't start this conversation. Check your connection and try again."
+      );
+    }
   };
 
   const ensureChat = () => getOrCreateChat(selectedUser);
@@ -422,10 +520,11 @@ export default function Chat() {
 
     try {
       const chatId = selectedChatId || (await ensureChat());
+      const senderUsername = await resolveSenderUsername();
 
       await addDoc(collection(db, "chats", chatId, "messages"), {
         senderId: currentUid,
-        senderUsername: currentUsername,
+        senderUsername,
         text: msgText,
         type: "text",
         createdAt: serverTimestamp(),
@@ -435,6 +534,7 @@ export default function Chat() {
         lastMessage: msgText,
         lastMessageAt: serverTimestamp(),
         [`unreadCounts.${selectedUser.id}`]: increment(1),
+        [`typing.${currentUid}`]: deleteField(),
       });
     } catch (err) {
       console.error("Failed to send message:", err);
@@ -461,10 +561,11 @@ export default function Chat() {
 
     try {
       const chatId = selectedChatId || (await ensureChat());
+      const senderUsername = await resolveSenderUsername();
 
       await addDoc(collection(db, "chats", chatId, "messages"), {
         senderId: currentUid,
-        senderUsername: currentUsername,
+        senderUsername,
         type: "library_doc",
         text: "",
         docId: libDoc.id,
@@ -480,6 +581,7 @@ export default function Chat() {
         lastMessage: `📄 ${refLabel}`,
         lastMessageAt: serverTimestamp(),
         [`unreadCounts.${selectedUser.id}`]: increment(1),
+        [`typing.${currentUid}`]: deleteField(),
       });
 
       setShowLibPicker(false);
@@ -661,12 +763,37 @@ export default function Chat() {
     const isMine = msg.senderId === currentUid;
     const ms = toMs(msg.createdAt);
     const isEditingThis = editingMsgId === msg.id;
-    const canEdit = isMine && msg.type === "text" && editMode;
+    const canEdit = isMine && msg.type === "text" && editMode && !msg.deleted;
+
+    if (msg.deleted) {
+      return (
+        <div key={msg.id} className={`wa-bubble-wrap ${isMine ? "mine" : "theirs"}`}>
+          <div
+            className={`wa-bubble ${isMine ? "wa-bubble-mine" : "wa-bubble-theirs"} wa-bubble-file`}
+          >
+            <span className="wa-bubble-deleted">This message was deleted</span>
+            <div className="wa-bubble-meta">
+              <span className="wa-bubble-time">{formatTime(ms)}</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     if (msg.type === "library_doc") {
       return (
         <div key={msg.id} className={`wa-bubble-wrap ${isMine ? "mine" : "theirs"}`}>
           <div className={`wa-bubble ${isMine ? "wa-bubble-mine" : "wa-bubble-theirs"} wa-bubble-file`}>
+            {isMine && (
+              <button
+                type="button"
+                className="wa-bubble-delete-btn"
+                title="Delete"
+                onClick={() => confirmDeleteMsg(msg)}
+              >
+                Delete
+              </button>
+            )}
             <div className="wa-file-content">
               <div className={`wa-file-icon-wrap ${isMine ? "mine" : ""}`}>
                 <Icon.Doc />
@@ -704,8 +831,18 @@ export default function Chat() {
     }
 
     return (
-      <div key={msg.id} className={`wa-bubble-wrap ${isMine ? "mine" : "theirs"}`}>
+        <div key={msg.id} className={`wa-bubble-wrap ${isMine ? "mine" : "theirs"}`}>
         <div className={`wa-bubble ${isMine ? "wa-bubble-mine" : "wa-bubble-theirs"} ${canEdit ? "editable" : ""}`}>
+          {isMine && (
+            <button
+              type="button"
+              className="wa-bubble-delete-btn"
+              title="Delete"
+              onClick={() => confirmDeleteMsg(msg)}
+            >
+              Delete
+            </button>
+          )}
           {isEditingThis ? (
             <div className="wa-msg-edit-wrap">
               <textarea
@@ -867,7 +1004,10 @@ export default function Chat() {
           <div className="wa-sidebar-footer">
             <button
               className="wa-new-conv-btn"
-              onClick={() => setShowNewConv(true)}
+              onClick={() => {
+                setNewConvError("");
+                setShowNewConv(true);
+              }}
               type="button"
             >
               <Icon.Plus />
@@ -901,6 +1041,11 @@ export default function Chat() {
                         Last seen {formatLastSeen(toMs(selectedLastSeen))}
                       </>
                     ) : null}
+                    {showOtherTyping && (
+                      <div className="wa-typing-hint">
+                        {selectedUser.username} is typing…
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1029,6 +1174,7 @@ export default function Chat() {
                       onSelect={(emoji) => {
                         setText((prev) => prev + emoji);
                         setShowEmoji(false);
+                        scheduleTypingUpdate();
                         inputRef.current?.focus();
                       }}
                     />
@@ -1049,7 +1195,10 @@ export default function Chat() {
                   className="wa-text-input"
                   placeholder="Type a message..."
                   value={text}
-                  onChange={(e) => setText(e.target.value)}
+                  onChange={(e) => {
+                    setText(e.target.value);
+                    scheduleTypingUpdate();
+                  }}
                   onKeyDown={handleKeyDown}
                 />
 
@@ -1096,13 +1245,22 @@ export default function Chat() {
 
       {/* NEW CONVERSATION MODAL */}
       {showNewConv && (
-        <div className="wa-modal-overlay" onClick={() => setShowNewConv(false)}>
+        <div
+          className="wa-modal-overlay"
+          onClick={() => {
+            setNewConvError("");
+            setShowNewConv(false);
+          }}
+        >
           <div className="wa-modal" onClick={(e) => e.stopPropagation()}>
             <div className="wa-modal-header">
               <h3>New Conversation</h3>
               <button
                 className="wa-modal-close-btn"
-                onClick={() => setShowNewConv(false)}
+                onClick={() => {
+                  setNewConvError("");
+                  setShowNewConv(false);
+                }}
                 type="button"
               >
                 <Icon.Close />
@@ -1124,6 +1282,12 @@ export default function Chat() {
             <div className="wa-modal-subtitle">
               {filteredAllUsers.length} user{filteredAllUsers.length !== 1 ? "s" : ""} available
             </div>
+
+            {newConvError ? (
+              <div className="wa-modal-error" role="alert">
+                ⓘ {newConvError}
+              </div>
+            ) : null}
 
             <div className="wa-modal-list">
               {filteredAllUsers.length === 0 ? (
@@ -1187,7 +1351,11 @@ export default function Chat() {
                   {libraryDocs.length === 0 ? "No documents in Library yet" : "No matches"}
                 </div>
               ) : (
-                filteredLibraryDocs.map((d) => (
+                filteredLibraryDocs.map((d) => {
+                  const deptLabel = Array.isArray(d.departments)
+                    ? d.departments.join(", ")
+                    : (d.department || "");
+                  return (
                   <button
                     key={d.id}
                     className="wa-lib-item"
@@ -1203,7 +1371,7 @@ export default function Chat() {
                       <div className="wa-lib-title">{d.title || "Untitled"}</div>
                       <div className="wa-lib-meta">
                         {(d.type || "doc").toUpperCase()}
-                        {d.department ? ` • ${d.department}` : ""}
+                        {deptLabel ? ` • ${deptLabel}` : ""}
                       </div>
                     </div>
 
@@ -1211,7 +1379,8 @@ export default function Chat() {
                       <Icon.Send />
                     </div>
                   </button>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

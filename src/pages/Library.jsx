@@ -13,10 +13,13 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { useSearchParams } from "react-router-dom";
+import { useToast } from "../context/ToastContext";
 import Layout from "../components/Layout";
 import { auth, db } from "../firebase";
 
 const DEPARTMENT_FILTERS = ["All", "ADMIN TSM", "IT", "SAIFER", "KOMUNIKASI"];
+const LIBRARY_EDIT_TYPES = ["MEMO", "SURAT", "UTUSAN", "EMAIL"];
+const LIBRARY_EDIT_DEPTS = ["ADMIN TSM", "IT", "SAIFER", "KOMUNIKASI"];
 
 const TYPE_OPTIONS = [
   { value: "all", label: "All Types" },
@@ -97,9 +100,23 @@ function TrashIcon() {
   );
 }
 
+function PencilDocIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 21H10L21 10L14 3L3 14V21H4Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path d="M15 6L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function CheckIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path d="M5 12L10 17L20 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -204,6 +221,16 @@ function normalizeTypeKey(type) {
   return String(type || "").toLowerCase().trim();
 }
 
+function docDepartmentNames(docItem) {
+  if (Array.isArray(docItem.departments) && docItem.departments.length > 0) {
+    return docItem.departments.map((s) => String(s || "").trim()).filter(Boolean);
+  }
+  if (typeof docItem.department === "string" && docItem.department.trim()) {
+    return docItem.department.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 function EmailViewModal({ item, onClose }) {
   return (
     <div
@@ -283,7 +310,140 @@ function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
+function EditDocModal({ item, onClose, onToast }) {
+  const [busy, setBusy] = useState(false);
+  const [refNo, setRefNo] = useState(item.refNo || "");
+  const [title, setTitle] = useState(item.title || "");
+  const [type, setType] = useState(String(item.type || "MEMO").toUpperCase());
+  const [direction, setDirection] = useState(
+    String(item.direction || "incoming").toLowerCase() === "outgoing"
+      ? "outgoing"
+      : "incoming"
+  );
+  const [departments, setDepartments] = useState(() => {
+    if (Array.isArray(item.departments) && item.departments.length > 0) {
+      return item.departments;
+    }
+    if (typeof item.department === "string" && item.department.trim()) {
+      return item.department.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+    return [];
+  });
+
+  const toggleDept = (d) =>
+    setDepartments((prev) =>
+      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]
+    );
+
+  const save = async () => {
+    const r = refNo.trim();
+    const t = title.trim();
+    if (!r || !t) {
+      onToast?.("Reference number and title are required.", "error");
+      return;
+    }
+    if (departments.length === 0) {
+      onToast?.("Please select at least one department.", "error");
+      return;
+    }
+
+    try {
+      setBusy(true);
+      await updateDoc(doc(db, "documents", item.id), {
+        refNo: r,
+        title: t,
+        type: type.trim(),
+        direction,
+        departments,
+        department: departments.join(", "),
+      });
+      onToast?.("Document updated.", "success");
+      onClose();
+    } catch (err) {
+      console.error(err);
+      onToast?.("Failed to save changes. Try again.", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="lib-edit-overlay" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="lib-edit-card" onClick={(e) => e.stopPropagation()}>
+        <h3>Edit document</h3>
+
+        <div className="lib-edit-field">
+          <label htmlFor="lib-edit-ref">Reference no.</label>
+          <input id="lib-edit-ref" value={refNo} onChange={(e) => setRefNo(e.target.value)} />
+        </div>
+
+        <div className="lib-edit-field">
+          <label htmlFor="lib-edit-title">Title</label>
+          <input id="lib-edit-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+        </div>
+
+        <div className="lib-edit-field">
+          <label htmlFor="lib-edit-type">Type</label>
+          <select id="lib-edit-type" value={type} onChange={(e) => setType(e.target.value)}>
+            {LIBRARY_EDIT_TYPES.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="lib-edit-field">
+          <span id="lib-edit-dir-label">Direction</span>
+          <div className="lib-edit-toggle-row" role="group" aria-labelledby="lib-edit-dir-label">
+            <button
+              type="button"
+              className={`lib-edit-toggle-btn${direction === "incoming" ? " active" : ""}`}
+              onClick={() => setDirection("incoming")}
+            >
+              Incoming
+            </button>
+            <button
+              type="button"
+              className={`lib-edit-toggle-btn${direction === "outgoing" ? " active" : ""}`}
+              onClick={() => setDirection("outgoing")}
+            >
+              Outgoing
+            </button>
+          </div>
+        </div>
+
+        <div className="lib-edit-field">
+          <span>Departments</span>
+          <div className="lib-edit-dept-grid">
+            {LIBRARY_EDIT_DEPTS.map((dept) => (
+              <label key={dept} className="lib-edit-dept-label">
+                <input
+                  type="checkbox"
+                  checked={departments.includes(dept)}
+                  onChange={() => toggleDept(dept)}
+                />
+                {dept}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="lib-edit-actions">
+          <button type="button" className="lib-edit-btn cancel" onClick={onClose} disabled={busy}>
+            Cancel
+          </button>
+          <button type="button" className="lib-edit-btn save" onClick={save} disabled={busy}>
+            {busy ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Library() {
+  const { toast } = useToast();
   const [documents, setDocuments] = useState([]);
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState("All");
@@ -293,11 +453,12 @@ export default function Library() {
   const [pageSize, setPageSize] = useState(10);
   const [sortColumn, setSortColumn] = useState(null);
   const [sortDirection, setSortDirection] = useState("asc");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [editTarget, setEditTarget] = useState(null);
 
-  const [syncing, setSyncing]         = useState(false);
-  const [syncMessage, setSyncMessage] = useState("");
-  const [emailModal, setEmailModal]   = useState(null);
-  const [actionError, setActionError] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [emailModal, setEmailModal] = useState(null);
 
   const [searchParams] = useSearchParams();
   const statusFilter = String(searchParams.get("status") || "all").toLowerCase();
@@ -319,7 +480,7 @@ export default function Library() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, typeFilter, deptFilter, statusFilter, sortBy, sortColumn, sortDirection, pageSize]);
+  }, [search, typeFilter, deptFilter, statusFilter, sortBy, sortColumn, sortDirection, pageSize, dateFrom, dateTo]);
 
   const statusFilteredDocs = useMemo(() => {
     if (statusFilter === "all") return documents;
@@ -353,6 +514,38 @@ export default function Library() {
 
   const processedDocs = useMemo(() => {
     let result = [...statusFilteredDocs];
+
+    const parseFilterDateMs = (s, endOfDay) => {
+      if (!s?.trim?.()) return null;
+      const parts = String(s).split("-");
+      if (parts.length !== 3) return null;
+      const y = Number(parts[0]);
+      const m = Number(parts[1]) - 1;
+      const day = Number(parts[2]);
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(day)) return null;
+      return new Date(
+        y,
+        m,
+        day,
+        endOfDay ? 23 : 0,
+        endOfDay ? 59 : 0,
+        endOfDay ? 59 : 0,
+        endOfDay ? 999 : 0
+      ).getTime();
+    };
+
+    const fromMsBound = parseFilterDateMs(dateFrom, false);
+    const toMsBound = parseFilterDateMs(dateTo, true);
+    if (fromMsBound !== null || toMsBound !== null) {
+      result = result.filter((item) => {
+        const ct = item.createdAt?.toDate?.();
+        if (!ct) return false;
+        const t = ct.getTime();
+        if (fromMsBound !== null && t < fromMsBound) return false;
+        if (toMsBound !== null && t > toMsBound) return false;
+        return true;
+      });
+    }
 
     const keyword = search.trim().toLowerCase();
     if (keyword) {
@@ -422,7 +615,7 @@ export default function Library() {
     }
 
     return result;
-  }, [statusFilteredDocs, search, typeFilter, deptFilter, sortColumn, sortDirection, sortBy]);
+  }, [statusFilteredDocs, search, typeFilter, deptFilter, sortColumn, sortDirection, sortBy, dateFrom, dateTo]);
 
   const totalPages = Math.max(1, Math.ceil(processedDocs.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -468,7 +661,7 @@ export default function Library() {
       await updateDoc(doc(db, "documents", docItem.id), payload);
     } catch (err) {
       console.error("Failed to mark viewed:", err);
-      setActionError("Failed to mark as viewed. Please try again.");
+      toast("Failed to mark as viewed. Please try again.", "error");
     }
   };
 
@@ -482,7 +675,7 @@ export default function Library() {
       });
     } catch (err) {
       console.error("Failed to mark processed:", err);
-      setActionError("Failed to mark as done. Please try again.");
+      toast("Failed to mark as done. Please try again.", "error");
     }
   };
 
@@ -493,7 +686,7 @@ export default function Library() {
       await deleteDoc(doc(db, "documents", id));
     } catch (err) {
       console.error("Failed to delete:", err);
-      setActionError("Failed to delete document. Please try again.");
+      toast("Failed to delete document. Please try again.", "error");
     }
   };
 
@@ -522,7 +715,6 @@ export default function Library() {
 
   const syncEmails = async () => {
     setSyncing(true);
-    setSyncMessage("");
     try {
       const response = await fetch(import.meta.env.VITE_APPS_SCRIPT_URL, {
         method: "POST",
@@ -536,7 +728,7 @@ export default function Library() {
 
       const emails = result.emails || [];
       if (emails.length === 0) {
-        setSyncMessage("No new emails.");
+        toast("No new emails.", "info");
         return;
       }
 
@@ -565,10 +757,10 @@ export default function Library() {
         )
       );
 
-      setSyncMessage(`${emails.length} email(s) synced.`);
+      toast(`Synced ${emails.length} email(s).`, "success");
     } catch (err) {
       console.error(err);
-      setSyncMessage("Sync failed: " + err.message);
+      toast("Sync failed: " + err.message, "error");
     } finally {
       setSyncing(false);
     }
@@ -606,85 +798,96 @@ export default function Library() {
           </div>
         </div>
 
-        {/* Toolbar: search on top, dropdowns below */}
         <div className="library-v2-toolbar">
-          <div className="library-v2-search-wrap">
-            <input
-              className="library-v2-search-input"
-              placeholder="Search documents by title, reference no, type, department..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <span className="library-v2-search-icon">
-              <SearchIcon />
-            </span>
+          <div className="library-v2-toolbar-row">
+            <div className="library-v2-search-wrap">
+              <input
+                className="library-v2-search-input"
+                placeholder="Search documents by title, reference no, type, department..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <span className="library-v2-search-icon">
+                <SearchIcon />
+              </span>
+            </div>
+
+            <div className="library-v2-dropdowns">
+              <select
+                className="library-v2-select"
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+              >
+                {TYPE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="library-v2-select"
+                value={deptFilter}
+                onChange={(e) => setDeptFilter(e.target.value)}
+              >
+                {DEPT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+
+              <div className="library-v2-date-field">
+                <label htmlFor="lib-filter-from">From</label>
+                <input
+                  id="lib-filter-from"
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                />
+              </div>
+              <div className="library-v2-date-field">
+                <label htmlFor="lib-filter-to">To</label>
+                <input
+                  id="lib-filter-to"
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                />
+              </div>
+
+              <select
+                className="library-v2-select library-v2-select-sort"
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setSortColumn(null);
+                }}
+              >
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                className="library-v2-sync-btn"
+                onClick={syncEmails}
+                disabled={syncing}
+                title="Sync unread emails from Gmail"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                  <path d="M4 12C4 7.58 7.58 4 12 4C14.93 4 17.5 5.55 19 7.93" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M20 12C20 16.42 16.42 20 12 20C9.07 20 6.5 18.45 5 16.07" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M19 4L19 8L15 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M5 20L5 16L9 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                {syncing ? "Syncing..." : "Sync Emails"}
+              </button>
+            </div>
           </div>
-
-          <div className="library-v2-dropdowns">
-            <select
-              className="library-v2-select"
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-            >
-              {TYPE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="library-v2-select"
-              value={deptFilter}
-              onChange={(e) => setDeptFilter(e.target.value)}
-            >
-              {DEPT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="library-v2-select library-v2-select-sort"
-              value={sortBy}
-              onChange={(e) => {
-                setSortBy(e.target.value);
-                setSortColumn(null);
-              }}
-            >
-              {SORT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-
-            <button
-              type="button"
-              className="library-v2-sync-btn"
-              onClick={syncEmails}
-              disabled={syncing}
-              title="Sync unread emails from Gmail"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-                <path d="M4 12C4 7.58 7.58 4 12 4C14.93 4 17.5 5.55 19 7.93" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                <path d="M20 12C20 16.42 16.42 20 12 20C9.07 20 6.5 18.45 5 16.07" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                <path d="M19 4L19 8L15 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M5 20L5 16L9 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              {syncing ? "Syncing..." : "Sync Emails"}
-            </button>
-          </div>
-
-          {syncMessage && (
-            <p className="library-v2-sync-message">{syncMessage}</p>
-          )}
-          {actionError && (
-            <p className="library-v2-sync-message" style={{ color: "#e53e3e" }}>
-              ⓘ {actionError}
-            </p>
-          )}
         </div>
 
         <div className="library-v2-pills">
@@ -741,7 +944,7 @@ export default function Library() {
                     />
                   </th>
                   <th
-                    className="library-v2-sortable"
+                    className="library-v2-sortable library-v2-dept-col"
                     onClick={() => handleSortColumn("department")}
                   >
                     <span>DEPARTMENT</span>
@@ -787,6 +990,7 @@ export default function Library() {
                     const statusText = getStatusText(docItem.status);
                     const statusClass = getStatusClass(docItem.status);
                     const typeLower = normalizeTypeKey(docItem.type);
+                    const deptNames = docDepartmentNames(docItem);
 
                     return (
                       <tr key={docItem.id}>
@@ -813,7 +1017,21 @@ export default function Library() {
                         </td>
 
                         <td className="library-v2-dept-cell">
-                          {docItem.departments?.join(", ") || docItem.department || "-"}
+                          {deptNames.length > 0 ? (
+                            <div className="library-v2-dept-pills">
+                              {deptNames.map((name, i) => (
+                                <span
+                                  key={`${docItem.id}-${name}-${i}`}
+                                  className="library-v2-dept-pill"
+                                  title={name}
+                                >
+                                  {name}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="library-v2-dept-empty">—</span>
+                          )}
                         </td>
 
                         <td>
@@ -881,14 +1099,25 @@ export default function Library() {
                               </a>
                             )}
 
+                            <button
+                              type="button"
+                              className="library-v2-icon-btn edit"
+                              onClick={() => setEditTarget(docItem)}
+                              aria-label="Edit document"
+                              title="Edit"
+                            >
+                              <PencilDocIcon />
+                            </button>
+
                             {statusText !== "Processed" && (
                               <button
                                 type="button"
-                                className="library-v2-done-btn"
+                                className="library-v2-icon-btn"
                                 onClick={() => markProcessed(docItem.id)}
+                                title="Mark as Done"
+                                aria-label="Mark as Done"
                               >
                                 <CheckIcon />
-                                Mark as Done
                               </button>
                             )}
 
@@ -980,6 +1209,14 @@ export default function Library() {
           )}
         </div>
       </div>
+
+      {editTarget && (
+        <EditDocModal
+          item={editTarget}
+          onClose={() => setEditTarget(null)}
+          onToast={toast}
+        />
+      )}
 
       {emailModal && (
         <EmailViewModal

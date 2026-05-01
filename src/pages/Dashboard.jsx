@@ -24,6 +24,7 @@ const TYPE_COLORS = {
   Surat: "#e55353",
   Utusan: "#4caf50",
   Email: "#f2a93b",
+  Other: "#94a3b8",
 };
 
 function safeDate(value) {
@@ -160,7 +161,7 @@ function CloseIcon() {
 }
 
 /* ====== Clickable Stat Card ====== */
-function StatCard({ colorClass, icon, label, value, onClick }) {
+function StatCard({ colorClass, icon, label, value, subline, onClick }) {
   return (
     <div
       className={`dashboard-stat-card ${colorClass} dashboard-stat-clickable`}
@@ -179,6 +180,7 @@ function StatCard({ colorClass, icon, label, value, onClick }) {
         <div className="dashboard-stat-label">{label}</div>
       </div>
       <div className="dashboard-stat-value">{value}</div>
+      {subline ? <div className="dashboard-stat-subline">{subline}</div> : null}
     </div>
   );
 }
@@ -271,7 +273,7 @@ function normalizeType(type) {
   if (value.includes("utusan")) return "Utusan";
   if (value.includes("email") || value.includes("mail")) return "Email";
 
-  return "Memo";
+  return "Other";
 }
 
 function PieChartSvg({ data }) {
@@ -281,7 +283,7 @@ function PieChartSvg({ data }) {
     return <div className="dashboard-empty-chart">No type data</div>;
   }
 
-  const orderedData = ["Memo", "Surat", "Utusan", "Email"]
+  const orderedData = ["Memo", "Surat", "Utusan", "Email", "Other"]
     .map((label) => data.find((item) => item.label === label))
     .filter(Boolean);
 
@@ -380,13 +382,20 @@ function BarChartSvg({ data }) {
         surat: 0,
         utusan: 0,
         email: 0,
+        other: 0,
       }
     );
   });
 
   const maxValue = Math.max(
     10,
-    ...orderedData.flatMap((item) => [item.memo, item.surat, item.utusan, item.email])
+    ...orderedData.flatMap((item) => [
+      item.memo,
+      item.surat,
+      item.utusan,
+      item.email,
+      item.other ?? 0,
+    ])
   );
 
   const niceMax = Math.ceil(maxValue / 5) * 5;
@@ -397,8 +406,9 @@ function BarChartSvg({ data }) {
   const leftX = 30;
   const rightX = 410;
   const chartStartX = 20;
-  const groupGap = 30.5;
-  const barWidth = 7;
+  const groupGap = 31;
+  const barWidth = 5;
+  const barStep = 7;
 
   return (
     <svg viewBox="0 0 430 240" className="bar-chart-svg dashboard-equal-chart">
@@ -430,6 +440,7 @@ function BarChartSvg({ data }) {
       {orderedData.map((item, index) => {
         const groupX = chartStartX + index * groupGap;
 
+        const oth = item.other ?? 0;
         return (
           <g key={item.label}>
             <rect
@@ -441,7 +452,7 @@ function BarChartSvg({ data }) {
               rx="2"
             />
             <rect
-              x={groupX + 8}
+              x={groupX + barStep}
               y={baseY - (item.surat / niceMax) * chartHeight}
               width={barWidth}
               height={(item.surat / niceMax) * chartHeight}
@@ -449,7 +460,7 @@ function BarChartSvg({ data }) {
               rx="2"
             />
             <rect
-              x={groupX + 16}
+              x={groupX + barStep * 2}
               y={baseY - (item.utusan / niceMax) * chartHeight}
               width={barWidth}
               height={(item.utusan / niceMax) * chartHeight}
@@ -457,15 +468,23 @@ function BarChartSvg({ data }) {
               rx="2"
             />
             <rect
-              x={groupX + 24}
+              x={groupX + barStep * 3}
               y={baseY - (item.email / niceMax) * chartHeight}
               width={barWidth}
               height={(item.email / niceMax) * chartHeight}
               fill={TYPE_COLORS.Email}
               rx="2"
             />
+            <rect
+              x={groupX + barStep * 4}
+              y={baseY - (oth / niceMax) * chartHeight}
+              width={barWidth}
+              height={(oth / niceMax) * chartHeight}
+              fill={TYPE_COLORS.Other}
+              rx="2"
+            />
 
-            <text x={groupX + 12} y="202" className="bar-axis-text month">
+            <text x={groupX + barStep * 2} y="202" className="bar-axis-text month">
               {item.label}
             </text>
           </g>
@@ -473,17 +492,30 @@ function BarChartSvg({ data }) {
       })}
 
       <g>
-        <rect x="80" y="218" width="10" height="10" rx="2" fill={TYPE_COLORS.Memo} />
-        <text x="95" y="227" className="bar-legend-text">Memo</text>
+        <rect x="55" y="218" width="9" height="9" rx="2" fill={TYPE_COLORS.Memo} />
+        <text x="68" y="227" className="bar-legend-text">
+          Memo
+        </text>
 
-        <rect x="150" y="218" width="10" height="10" rx="2" fill={TYPE_COLORS.Surat} />
-        <text x="165" y="227" className="bar-legend-text">Surat</text>
+        <rect x="115" y="218" width="9" height="9" rx="2" fill={TYPE_COLORS.Surat} />
+        <text x="128" y="227" className="bar-legend-text">
+          Surat
+        </text>
 
-        <rect x="225" y="218" width="10" height="10" rx="2" fill={TYPE_COLORS.Utusan} />
-        <text x="240" y="227" className="bar-legend-text">Utusan</text>
+        <rect x="177" y="218" width="9" height="9" rx="2" fill={TYPE_COLORS.Utusan} />
+        <text x="190" y="227" className="bar-legend-text">
+          Utusan
+        </text>
 
-        <rect x="315" y="218" width="10" height="10" rx="2" fill={TYPE_COLORS.Email} />
-        <text x="330" y="227" className="bar-legend-text">Email</text>
+        <rect x="242" y="218" width="9" height="9" rx="2" fill={TYPE_COLORS.Email} />
+        <text x="255" y="227" className="bar-legend-text">
+          Email
+        </text>
+
+        <rect x="312" y="218" width="9" height="9" rx="2" fill={TYPE_COLORS.Other} />
+        <text x="325" y="227" className="bar-legend-text">
+          Other
+        </text>
       </g>
     </svg>
   );
@@ -492,6 +524,7 @@ function BarChartSvg({ data }) {
 export default function Dashboard() {
   const [documents, setDocuments] = useState([]);
   const [search, setSearch] = useState("");
+  const [barChartYear, setBarChartYear] = useState(null);
   const [activeModal, setActiveModal] = useState(null); // "viewed" | "processed" | "total" | null
   const navigate = useNavigate();
 
@@ -526,15 +559,35 @@ export default function Dashboard() {
     if (!keyword) return documents;
 
     return documents.filter((doc) => {
+      const deptStr =
+        String(doc.departments?.join(", ") || doc.department || "").toLowerCase();
       return (
         String(doc.refNo || "").toLowerCase().includes(keyword) ||
         String(doc.title || "").toLowerCase().includes(keyword) ||
         String(doc.type || "").toLowerCase().includes(keyword) ||
-        String(doc.department || "").toLowerCase().includes(keyword) ||
+        deptStr.includes(keyword) ||
+        String(doc.direction || "").toLowerCase().includes(keyword) ||
         String(doc.status || "").toLowerCase().includes(keyword)
       );
     });
   }, [documents, search]);
+
+  const availableBarYears = useMemo(() => {
+    const yrs = new Set();
+    filteredDocuments.forEach((doc) => {
+      const d = safeDate(doc.createdAt);
+      if (d) yrs.add(d.getFullYear());
+    });
+    yrs.add(new Date().getFullYear());
+    return [...yrs].sort((a, b) => b - a);
+  }, [filteredDocuments]);
+
+  const effectiveBarYear = useMemo(() => {
+    if (barChartYear !== null && availableBarYears.includes(barChartYear)) {
+      return barChartYear;
+    }
+    return availableBarYears[0] ?? new Date().getFullYear();
+  }, [availableBarYears, barChartYear]);
 
   const summary = useMemo(() => {
     const totalCount = filteredDocuments.length;
@@ -559,9 +612,17 @@ export default function Dashboard() {
       surat: 0,
       utusan: 0,
       email: 0,
+      other: 0,
     }));
 
-    filteredDocuments.forEach((doc) => {
+    const yearNum = Number(effectiveBarYear);
+    const docsForBar =
+      filteredDocuments.filter((doc) => {
+        const d = safeDate(doc.createdAt);
+        return d && d.getFullYear() === yearNum;
+      }) || [];
+
+    docsForBar.forEach((doc) => {
       const d = safeDate(doc.createdAt);
       if (!d) return;
 
@@ -571,9 +632,10 @@ export default function Dashboard() {
 
       const typeLabel = normalizeType(doc.type);
       if (typeLabel === "Memo") found.memo += 1;
-      if (typeLabel === "Surat") found.surat += 1;
-      if (typeLabel === "Utusan") found.utusan += 1;
-      if (typeLabel === "Email") found.email += 1;
+      else if (typeLabel === "Surat") found.surat += 1;
+      else if (typeLabel === "Utusan") found.utusan += 1;
+      else if (typeLabel === "Email") found.email += 1;
+      else found.other += 1;
     });
 
     const typeTotals = {
@@ -581,6 +643,7 @@ export default function Dashboard() {
       Surat: 0,
       Utusan: 0,
       Email: 0,
+      Other: 0,
     };
 
     filteredDocuments.forEach((doc) => {
@@ -626,6 +689,14 @@ export default function Dashboard() {
         fileUrl: d.fileUrl || "",
       }));
 
+    let incomingDocsCount = 0;
+    let outgoingDocsCount = 0;
+    filteredDocuments.forEach((d) => {
+      const dir = String(d.direction || "").toLowerCase();
+      if (dir === "outgoing") outgoingDocsCount += 1;
+      else incomingDocsCount += 1;
+    });
+
     return {
       totalCount,
       pendingCount: pendingDocs.length,
@@ -638,8 +709,10 @@ export default function Dashboard() {
       pieData,
       recentActivity,
       allRefs,
+      incomingDocsCount,
+      outgoingDocsCount,
     };
-  }, [filteredDocuments]);
+  }, [filteredDocuments, effectiveBarYear]);
 
   // Card click handlers
   const handlePendingClick = () => {
@@ -746,6 +819,7 @@ export default function Dashboard() {
             icon={<FileIcon />}
             label="Total Documents"
             value={summary.totalCount}
+            subline={`Incoming ${summary.incomingDocsCount} · Outgoing ${summary.outgoingDocsCount}`}
             onClick={handleTotalClick}
           />
         </div>
@@ -753,6 +827,21 @@ export default function Dashboard() {
         <div className="dashboard-chart-grid">
           <div className="dashboard-chart-box">
             <h3 className="dashboard-section-title">Monthly Document Overview</h3>
+            <div className="dashboard-bar-year-row">
+              <span className="dashboard-bar-year-label">Year</span>
+              <select
+                className="dashboard-bar-year-select"
+                value={effectiveBarYear}
+                onChange={(e) => setBarChartYear(Number(e.target.value))}
+                aria-label="Filter bar chart by year"
+              >
+                {availableBarYears.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="dashboard-bar-box">
               <BarChartSvg data={summary.monthlyData} />
             </div>

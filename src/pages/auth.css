@@ -418,3 +418,51 @@ body {
   margin: 0 0 16px;
   letter-spacing: 0.3px;
 }
+
+@media (max-width: 480px) {
+  .login-overlay {
+    padding: 20px 12px;
+    align-items: flex-start;
+    padding-top: max(28px, env(safe-area-inset-top));
+  }
+
+  .login-wrapper {
+    max-width: none;
+  }
+
+  .login-card {
+    padding: 24px 20px;
+    border-radius: 14px;
+  }
+
+  .idms-title {
+    font-size: 54px;
+  }
+
+  .idms-subtitle {
+    font-size: 11px;
+  }
+
+  .idms-unit {
+    font-size: 10px;
+    margin-bottom: 16px;
+  }
+
+  .field-label-auth {
+    font-size: 12px;
+  }
+
+  .glass-input-auth {
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  .btn-auth-primary {
+    min-height: 46px;
+    font-size: 14px;
+  }
+
+  .auth-footer-note {
+    font-size: 12px;
+  }
+}

@@ -2,8 +2,37 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
+
+    /**
+     * Normalized lowercase username → { uid }.
+     * - get allowed before login so Signup can check duplicates (signup cannot query /users when unauthenticated).
+     * - list denied so names cannot be enumerated.
+     */
+    match /usernames/{uname} {
+      allow get: if uname.matches('^[a-z0-9_]{3,}$');
+      allow list: if false;
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.uid
+        && request.resource.data.keys().hasOnly(['uid']);
+      allow update, delete: if false;
+    }
+
+    match /documents/{docId} {
       allow read, write: if request.auth != null;
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /chats/{chatId} {
+      allow read, write: if request.auth != null;
+
+      match /messages/{messageId} {
+        allow read, write: if request.auth != null;
+      }
     }
   }
 }

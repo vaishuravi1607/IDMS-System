@@ -288,7 +288,7 @@ function getInitials(user) {
 
   const cleaned = source.includes("@") ? source.split("@")[0] : source;
   const parts = cleaned
-    .split(/[\s._\-]+/)
+    .split(/[\s._-]+/)
     .filter(Boolean)
     .map((s) => s.trim())
     .filter(Boolean);
@@ -317,7 +317,7 @@ function getFirstName(user) {
   }
   if (user.email) {
     const local = user.email.split("@")[0];
-    const clean = local.replace(/[._\-]+/g, " ").trim().split(/\s+/)[0];
+    const clean = local.replace(/[._-]+/g, " ").trim().split(/\s+/)[0];
     if (clean) {
       return clean.charAt(0).toUpperCase() + clean.slice(1);
     }
@@ -338,6 +338,7 @@ function formatCount(n) {
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [nowMs] = useState(() => Date.now());
   const [user, setUser] = useState(auth.currentUser);
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const [documents, setDocuments] = useState([]);
@@ -369,9 +370,16 @@ export default function Layout({ children }) {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       try {
+        const READ_MAX = 500;
+        const READ_KEEP = 300;
         const key = `idms_read_notifications_${u?.uid || "anon"}`;
         const raw = localStorage.getItem(key);
-        setReadIds(new Set(raw ? JSON.parse(raw) : []));
+        let ids = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(ids) && ids.length > READ_MAX) {
+          ids = ids.slice(-READ_KEEP);
+          localStorage.setItem(key, JSON.stringify(ids));
+        }
+        setReadIds(new Set(Array.isArray(ids) ? ids : []));
       } catch {
         setReadIds(new Set());
       }
@@ -455,7 +463,7 @@ export default function Layout({ children }) {
 
   /* ---- Build notifications from documents ---- */
   const notifications = useMemo(() => {
-    const now = Date.now();
+    const now = nowMs;
     const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
     const list = [];
 
@@ -490,11 +498,43 @@ export default function Layout({ children }) {
           });
         }
       }
+
+      const sevenDays = 7 * 24 * 60 * 60 * 1000;
+      const typeUpper = String(doc.type || "").toUpperCase();
+      const directionLower = String(doc.direction || "").toLowerCase();
+      const statusLower = String(doc.status || "pending").toLowerCase();
+
+      if (
+        typeUpper === "MEMO" &&
+        directionLower === "incoming" &&
+        createdMs &&
+        now - createdMs <= sevenDays
+      ) {
+        list.push({
+          id: `${doc.id}_urgent`,
+          type: "urgent",
+          title: "Urgent: incoming MEMO",
+          subtitle: doc.title ? `${ref} — ${doc.title}` : ref,
+          time: createdMs,
+          docId: doc.id,
+        });
+      }
+
+      if (createdMs && statusLower !== "processed" && now - createdMs >= sevenDays) {
+        list.push({
+          id: `${doc.id}_deadline`,
+          type: "deadline",
+          title: `Follow-up overdue: ${ref}`,
+          subtitle: doc.title || "Still needs attention",
+          time: createdMs,
+          docId: doc.id,
+        });
+      }
     });
 
     list.sort((a, b) => b.time - a.time);
     return list.slice(0, 15);
-  }, [documents]);
+  }, [documents, nowMs]);
 
   const unreadBellCount = useMemo(
     () => notifications.filter((n) => !readIds.has(n.id)).length,
@@ -504,8 +544,12 @@ export default function Layout({ children }) {
   /* ---- Read state helpers ---- */
   const persistReadIds = (newSet) => {
     try {
+      const READ_MAX = 500;
+      const READ_KEEP = 300;
       const key = `idms_read_notifications_${user?.uid || "anon"}`;
-      localStorage.setItem(key, JSON.stringify([...newSet]));
+      let arr = [...newSet];
+      if (arr.length > READ_MAX) arr = arr.slice(-READ_KEEP);
+      localStorage.setItem(key, JSON.stringify(arr));
     } catch {
       /* ignore */
     }
@@ -802,15 +846,6 @@ export default function Layout({ children }) {
                 </div>
               )}
             </div>
-
-            <button
-              className="logout-btn"
-              type="button"
-              onClick={() => setShowLogoutConfirm(true)}
-            >
-              <LogoutIcon />
-              <span>Log Out</span>
-            </button>
           </div>
         </header>
 

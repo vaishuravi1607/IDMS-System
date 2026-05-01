@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { confirmPasswordReset, verifyPasswordResetCode } from "firebase/auth";
 import { auth } from "../firebase";
+import {
+  PASSWORD_REQUIREMENT_TEXT,
+  isPasswordStrong,
+} from "../passwordPolicy";
 import "./auth.css";
 
 function EyeIcon() {
@@ -31,7 +35,7 @@ function EyeSlashIcon() {
 const validateField = (name, value, password = "") => {
   if (name === "password") {
     if (!value) return "Password is required";
-    if (value.length < 6) return "Minimum 6 characters";
+    if (!isPasswordStrong(value)) return PASSWORD_REQUIREMENT_TEXT;
   }
   if (name === "confirm") {
     if (!value) return "Please confirm your password";
@@ -44,7 +48,7 @@ const firebaseError = (code) => {
   switch (code) {
     case "auth/expired-action-code": return "This reset link has expired. Please request a new one.";
     case "auth/invalid-action-code": return "This reset link is invalid or has already been used.";
-    case "auth/weak-password": return "Password must be at least 6 characters.";
+    case "auth/weak-password": return PASSWORD_REQUIREMENT_TEXT;
     case "auth/user-not-found": return "No account found for this link.";
     case "auth/user-disabled": return "This account has been disabled.";
     case "auth/network-request-failed": return "Network error. Check your connection and try again.";

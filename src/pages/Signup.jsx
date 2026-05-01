@@ -16,6 +16,10 @@ import {
   where,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
+import {
+  PASSWORD_REQUIREMENT_TEXT,
+  isPasswordStrong,
+} from "../passwordPolicy";
 import "./auth.css";
 
 function EyeIcon() {
@@ -55,7 +59,7 @@ const validateField = (name, value, extra = {}) => {
       return "";
     case "password":
       if (!value) return "Password is required";
-      if (value.length < 6) return "Minimum 6 characters";
+      if (!isPasswordStrong(value)) return PASSWORD_REQUIREMENT_TEXT;
       return "";
     case "confirmPassword":
       if (!value) return "Please confirm your password";
@@ -70,7 +74,7 @@ const firebaseErrorMessage = (code) => {
   switch (code) {
     case "auth/email-already-in-use": return "This email is already registered.";
     case "auth/invalid-email":        return "Please enter a valid email address.";
-    case "auth/weak-password":        return "Password is too weak. Use at least 6 characters.";
+    case "auth/weak-password":        return PASSWORD_REQUIREMENT_TEXT;
     case "auth/network-request-failed": return "Network error. Check your connection and try again.";
     case "auth/too-many-requests":    return "Too many attempts. Please try again later.";
     default:                          return "Failed to create account. Please try again.";

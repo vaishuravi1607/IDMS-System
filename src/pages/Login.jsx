@@ -49,7 +49,6 @@ const validateField = (name, value) => {
   }
   if (name === "password") {
     if (!value) return "Password is required";
-    if (value.length < 6) return "Minimum 6 characters";
   }
   return "";
 };

@@ -5,6 +5,32 @@ admin.initializeApp();
 
 const db = admin.firestore();
 
+const DEFAULT_CORS_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"];
+
+function allowedCorsOrigins() {
+  const extra = process.env.IDMS_ALLOWED_ORIGINS
+    ? process.env.IDMS_ALLOWED_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+  return [...DEFAULT_CORS_ORIGINS, ...extra];
+}
+
+function corsOrigin(req) {
+  const origin = req.get("Origin");
+  const list = allowedCorsOrigins();
+  if (origin && list.includes(origin)) return origin;
+  return list.length ? list[0] : null;
+}
+
+function assertStrongPassword(pw) {
+  if (typeof pw !== "string" || pw.length < 8) {
+    return "Password must be at least 8 characters.";
+  }
+  if (!/[A-Z]/.test(pw) || !/\d/.test(pw)) {
+    return "Password needs at least one uppercase letter and one number.";
+  }
+  return null;
+}
+
 exports.resetPasswordWithSecurityQA = functions
   .region("asia-southeast1")
   .runWith({
@@ -13,7 +39,8 @@ exports.resetPasswordWithSecurityQA = functions
     maxInstances: 1,
   })
   .https.onRequest(async (req, res) => {
-    res.set("Access-Control-Allow-Origin", "*");
+    const allowOrigin = corsOrigin(req);
+    if (allowOrigin) res.set("Access-Control-Allow-Origin", allowOrigin);
     res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.set("Access-Control-Allow-Headers", "Content-Type");
 
@@ -32,8 +59,9 @@ exports.resetPasswordWithSecurityQA = functions
         return res.status(400).json({ error: "Missing required fields" });
       }
 
-      if (typeof newPassword !== "string" || newPassword.length < 6) {
-        return res.status(400).json({ error: "Password must be at least 6 characters" });
+      const pwdErr = assertStrongPassword(newPassword);
+      if (pwdErr) {
+        return res.status(400).json({ error: pwdErr });
       }
 
       const userRecord = await admin.auth().getUserByEmail(email);

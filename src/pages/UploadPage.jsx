@@ -1,5 +1,14 @@
-﻿import { useRef, useState } from "react";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { useRef, useState } from "react";
+import {
+  addDoc,
+  collection,
+  getDocs,
+  limit,
+  query,
+  serverTimestamp,
+  where,
+} from "firebase/firestore";
+import { useToast } from "../context/ToastContext";
 import Layout from "../components/Layout";
 import { db } from "../firebase";
 
@@ -12,6 +21,7 @@ const TYPE_OPTIONS = [
 ];
 
 export default function UploadPage() {
+  const { toast } = useToast();
   const [refNo, setRefNo] = useState("");
   const [title, setTitle] = useState("");
   const [type, setType] = useState("");
@@ -20,7 +30,6 @@ export default function UploadPage() {
   const [uploadProgress, setUploadProgress] = useState("");
   const [departments, setDepartments] = useState([]);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [dragging, setDragging] = useState(false);
 
@@ -55,14 +64,12 @@ export default function UploadPage() {
     setUploadProgress("");
     setDepartments([]);
     setError("");
-    setSuccess("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setSuccess("");
 
     if (!refNo.trim() || !title.trim() || !type) {
       setError("Please complete Ref. No., Title and Type.");
@@ -87,7 +94,21 @@ export default function UploadPage() {
 
     try {
       setLoading(true);
-      setUploadProgress("uploading");
+      const trimmedRef = refNo.trim();
+      const dupSnap = await getDocs(
+        query(collection(db, "documents"), where("refNo", "==", trimmedRef), limit(1))
+      );
+      if (!dupSnap.empty) {
+        const proceed = window.confirm(
+          `A document with reference number "${trimmedRef}" already exists. Upload anyway?`
+        );
+        if (!proceed) {
+          setLoading(false);
+          return;
+        }
+      }
+
+      setUploadProgress("reading");
 
       const base64Data = await new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -110,7 +131,7 @@ export default function UploadPage() {
       setUploadProgress("done");
 
       await addDoc(collection(db, "documents"), {
-        refNo: refNo.trim(),
+        refNo: trimmedRef,
         title: title.trim(),
         type: type.trim(),
         direction,
@@ -123,10 +144,12 @@ export default function UploadPage() {
       });
 
       resetForm();
-      setSuccess("Document uploaded successfully.");
+      toast("Document uploaded successfully.", "success");
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to upload document.");
+      const msg = err.message || "Failed to upload document.";
+      setError(msg);
+      toast(msg, "error");
     } finally {
       setLoading(false);
       setUploadProgress("");
@@ -378,7 +401,6 @@ export default function UploadPage() {
 
               {/* Messages */}
               {error && <p className="upv3-error">{error}</p>}
-              {success && <p className="upv3-success">{success}</p>}
 
               {/* Info note line */}
               <div className="upv3-info-note">

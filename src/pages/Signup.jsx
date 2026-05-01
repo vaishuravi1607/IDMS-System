@@ -5,16 +5,7 @@ import {
   deleteUser,
   signOut,
 } from "firebase/auth";
-import {
-  collection,
-  doc,
-  getDocs,
-  limit,
-  query,
-  serverTimestamp,
-  setDoc,
-  where,
-} from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import {
   PASSWORD_REQUIREMENT_TEXT,
@@ -77,6 +68,8 @@ const firebaseErrorMessage = (code) => {
     case "auth/weak-password":        return PASSWORD_REQUIREMENT_TEXT;
     case "auth/network-request-failed": return "Network error. Check your connection and try again.";
     case "auth/too-many-requests":    return "Too many attempts. Please try again later.";
+    case "permission-denied":
+      return "Could not verify username or save your profile (Firestore rules). If this persists after deploy, contact your administrator.";
     default:                          return "Failed to create account. Please try again.";
   }
 };
@@ -137,11 +130,10 @@ export default function Signup() {
     try {
       setLoading(true);
 
-      const existing = await getDocs(
-        query(collection(db, "users"), where("username", "==", cleanUsername), limit(1))
-      );
+      const usernameKey = cleanUsername.toLowerCase();
+      const usernameClaim = await getDoc(doc(db, "usernames", usernameKey));
 
-      if (!existing.empty) {
+      if (usernameClaim.exists()) {
         setErrors((prev) => ({ ...prev, username: "Username already taken" }));
         return;
       }
@@ -150,11 +142,16 @@ export default function Signup() {
       createdUser = credential.user;
       await createdUser.getIdToken(true);
 
-      await setDoc(doc(db, "users", createdUser.uid), {
+      const batch = writeBatch(db);
+      batch.set(doc(db, "users", createdUser.uid), {
         username: cleanUsername,
         email: cleanEmail,
         createdAt: serverTimestamp(),
       });
+      batch.set(doc(db, "usernames", usernameKey), {
+        uid: createdUser.uid,
+      });
+      await batch.commit();
 
       setSuccess("Account created! Redirecting to login...");
       await signOut(auth);
